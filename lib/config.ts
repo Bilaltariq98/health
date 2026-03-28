@@ -45,6 +45,21 @@ export const config = {
 
   restTimerPresets: [60, 90, 120, 180] as const,
 
+  // ─── Nutrition targets ──────────────────────────────────────────────────────
+
+  nutrition: {
+    /** Daily calorie target */
+    caloriesTarget: 2400,
+    /** Daily protein target in grams */
+    proteinTargetG: 180,
+    /** Daily carbs target in grams */
+    carbsTargetG: 250,
+    /** Daily fat target in grams */
+    fatTargetG: 80,
+    /** Daily water target in glasses (250ml each) */
+    waterTargetGlasses: 8,
+  },
+
   // ─── Programme cycle ────────────────────────────────────────────────────────
 
   /** Deload every N weeks */
