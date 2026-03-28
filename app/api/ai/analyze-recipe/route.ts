@@ -4,6 +4,7 @@ import { getModel } from "@/lib/ai/provider";
 import { NutritionEstimateSchema } from "@/lib/ai/schemas";
 import { RECIPE_SYSTEM_PROMPT } from "@/lib/ai/prompts";
 import { extractRecipeText } from "@/lib/ai/extract-recipe";
+import { logAiUsage } from "@/lib/ai/log-usage";
 
 const RequestSchema = z.object({
   url: z.string().url("Invalid URL"),
@@ -66,7 +67,7 @@ export async function POST(req: Request) {
   }
 
   try {
-    const { object } = await generateObject({
+    const { object, usage } = await generateObject({
       model: getModel(),
       schema: NutritionEstimateSchema,
       system: RECIPE_SYSTEM_PROMPT,
@@ -77,6 +78,8 @@ export async function POST(req: Request) {
         },
       ],
     });
+
+    await logAiUsage("ai_recipe_analysis", usage);
 
     return Response.json({ ...object, recipeUrl: url });
   } catch (err) {

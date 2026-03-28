@@ -2,6 +2,7 @@ import { generateObject } from "ai";
 import { getModel } from "@/lib/ai/provider";
 import { NutritionEstimateSchema } from "@/lib/ai/schemas";
 import { PHOTO_SYSTEM_PROMPT } from "@/lib/ai/prompts";
+import { logAiUsage } from "@/lib/ai/log-usage";
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
 
@@ -30,7 +31,7 @@ export async function POST(req: Request) {
   const bytes = new Uint8Array(await file.arrayBuffer());
 
   try {
-    const { object } = await generateObject({
+    const { object, usage } = await generateObject({
       model: getModel(),
       schema: NutritionEstimateSchema,
       system: PHOTO_SYSTEM_PROMPT,
@@ -44,6 +45,8 @@ export async function POST(req: Request) {
         },
       ],
     });
+
+    await logAiUsage("ai_photo_analysis", usage);
 
     return Response.json(object);
   } catch (err) {
