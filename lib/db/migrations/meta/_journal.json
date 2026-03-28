@@ -8,6 +8,13 @@
       "when": 1774705416540,
       "tag": "0000_sour_mother_askani",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1774705416541,
+      "tag": "0001_session_index",
+      "breakpoints": true
     }
   ]
 }

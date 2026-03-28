@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { formatSessionDate, formatDuration } from "@/lib/utils";
-import { desc, eq, count } from "drizzle-orm";
+import { desc, count } from "drizzle-orm";
 
 const intentLabels: Record<string, string> = {
   "lower-push": "Lower + Push",
@@ -29,14 +29,15 @@ const patternColours: Record<string, string> = {
 };
 
 export default async function WorkoutsPage() {
-  const today = new Date().toLocaleDateString("en-GB", { weekday: "long" }).toLowerCase();
+  const todayDow = new Date().getDay();
 
   // Fetch recent sessions with set counts
   const recentSessions = await db
     .select({
       id: sessions.id,
       date: sessions.date,
-      dayType: sessions.dayType,
+      sessionIndex: sessions.sessionIndex,
+      preferredDay: sessions.preferredDay,
       intent: sessions.intent,
       startedAt: sessions.startedAt,
       completedAt: sessions.completedAt,
@@ -62,9 +63,9 @@ export default async function WorkoutsPage() {
       </div>
 
       {PROGRAMME.map((session) => {
-        const isToday = session.key === today;
+        const isToday = session.preferredDay === todayDow;
         return (
-          <Card key={session.key} className={isToday ? "border-[var(--primary)]/40" : ""}>
+          <Card key={session.index} className={isToday ? "border-[var(--primary)]/40" : ""}>
             <CardHeader>
               <div className="flex items-center gap-2 flex-wrap">
                 {isToday && <Badge variant="primary">Today</Badge>}
@@ -126,9 +127,9 @@ export default async function WorkoutsPage() {
                   );
                 })}
               </ol>
-              <Link href={`/workouts/active?day=${session.key}`}>
+              <Link href={`/workouts/active?session=${session.index}`}>
                 <Button size="lg" className="w-full" variant={isToday ? "primary" : "secondary"}>
-                  {isToday ? "Start Today's Session" : `Start ${session.key.charAt(0).toUpperCase() + session.key.slice(1)}'s Session`}
+                  {isToday ? "Start Today's Session" : `Start ${session.preferredDayName}'s Session`}
                 </Button>
               </Link>
             </CardContent>
@@ -159,9 +160,12 @@ export default async function WorkoutsPage() {
                         {!s.completedAt && <Badge variant="warning" className="text-[10px]">incomplete</Badge>}
                       </div>
                       <p className="text-xs text-[var(--muted-foreground)] mt-0.5">
-                        {setCountMap[s.id] ?? 0} sets
+                        Session {s.sessionIndex + 1}
+                        {s.preferredDay && new Date(s.date).toLocaleDateString("en-GB", { weekday: "long" }) !== s.preferredDay
+                          ? ` · done ${new Date(s.date).toLocaleDateString("en-GB", { weekday: "long" })} (pref. ${s.preferredDay})`
+                          : ""}
+                        {" · "}{setCountMap[s.id] ?? 0} sets
                         {s.durationSeconds ? ` · ${formatDuration(s.durationSeconds)}` : ""}
-                        {" · "}v{s.programmeVersion}
                       </p>
                     </div>
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-[var(--muted-foreground)] flex-shrink-0">

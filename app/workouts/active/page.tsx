@@ -3,6 +3,7 @@
 import { useSearchParams, useRouter } from "next/navigation";
 import { Suspense } from "react";
 import { ActiveSession } from "./active-session";
+import { PROGRAMME } from "@/lib/programme";
 
 export default function ActiveSessionPage() {
   return (
@@ -15,12 +16,13 @@ export default function ActiveSessionPage() {
 function ActiveSessionInner() {
   const params = useSearchParams();
   const router = useRouter();
-  const day = params.get("day") as "tuesday" | "wednesday" | "friday" | null;
+  const raw = params.get("session");
+  const sessionIndex = raw !== null ? parseInt(raw) : NaN;
 
-  if (!day) {
+  if (isNaN(sessionIndex) || sessionIndex < 0 || sessionIndex >= PROGRAMME.length) {
     router.replace("/workouts");
     return null;
   }
 
-  return <ActiveSession day={day} />;
+  return <ActiveSession sessionIndex={sessionIndex} />;
 }

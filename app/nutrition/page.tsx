@@ -5,7 +5,6 @@ import { eq, desc } from "drizzle-orm";
 import { today } from "@/lib/utils";
 import { config } from "@/lib/config";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { MacroRing } from "@/components/macro-ring";
 import { WaterCounter } from "@/components/water-counter";
