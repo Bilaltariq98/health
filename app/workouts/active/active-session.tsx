@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   PROGRAMME,
@@ -60,12 +60,11 @@ export function ActiveSession({ day }: { day: DayKey }) {
   const setsLogged = currentLog.sets.length;
   const targetSets = currentExercise.sets;
   const exerciseDone = setsLogged >= targetSets;
-  const sessionDone = exerciseIndex >= exercises.length - 1 && exerciseDone;
 
   // Last set for this exercise — pre-populate next set (reduces friction)
   const lastSet = currentLog.sets[currentLog.sets.length - 1] ?? null;
 
-  const logSet = useCallback(() => {
+  function logSet() {
     const set: LoggedSet = {
       setNumber: setsLogged + 1,
       reps: draft.reps ? parseInt(draft.reps) : null,
@@ -92,9 +91,9 @@ export function ActiveSession({ day }: { day: DayKey }) {
       setTimerSeconds(restSecs);
       setShowTimer(true);
     }
-  }, [draft, setsLogged, exerciseIndex, currentExercise]);
+  }
 
-  const nextExercise = useCallback(() => {
+  function nextExercise() {
     setShowTimer(false);
     if (exerciseIndex < exercises.length - 1) {
       setExerciseIndex((i) => i + 1);
@@ -102,11 +101,11 @@ export function ActiveSession({ day }: { day: DayKey }) {
     } else {
       setPhase("cooldown");
     }
-  }, [exerciseIndex, exercises.length]);
+  }
 
-  const finishSession = useCallback(() => {
+  function finishSession() {
     setPhase("complete");
-  }, []);
+  }
 
   // ── Warm-up phase ──────────────────────────────────────────────────────────
   if (phase === "warmup") {
@@ -219,6 +218,7 @@ export function ActiveSession({ day }: { day: DayKey }) {
       {/* Rest timer overlay */}
       {showTimer && (
         <RestTimer
+          key={timerSeconds}
           seconds={timerSeconds}
           presets={[...config.restTimerPresets]}
           onComplete={() => setShowTimer(false)}
