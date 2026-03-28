@@ -1,26 +1,138 @@
 @import "tailwindcss";
 
+/* ─── Design tokens ──────────────────────────────────────────────────────────
+   Dark mode is the default (matches portfolio). Light mode is opt-in.
+   ─────────────────────────────────────────────────────────────────────────── */
+
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background:        #12110f;
+  --foreground:        #f4efe6;
+  --card:              #1a1816;
+  --card-foreground:   #f4efe6;
+  --popover:           #1a1816;
+  --popover-foreground:#f4efe6;
+
+  --primary:           #c87a35;
+  --primary-foreground:#12110f;
+  --accent:            #e8932a;
+  --accent-foreground: #12110f;
+
+  --secondary:         #23201b;
+  --secondary-foreground: #c4b8a8;
+  --muted:             #23201b;
+  --muted-foreground:  rgba(244, 239, 230, 0.55);
+
+  --border:            rgba(233, 226, 214, 0.10);
+  --input:             rgba(233, 226, 214, 0.08);
+  --ring:              #e8932a;
+
+  --destructive:       #c0392b;
+  --destructive-foreground: #f4efe6;
+  --success:           #27ae60;
+  --success-foreground:#f4efe6;
+  --warning:           #e8932a;
+
+  --radius:            0.5rem;
+  --radius-sm:         0.25rem;
+  --radius-lg:         0.75rem;
+
+  --font-sans: "Avenir Next", "Segoe UI", "Helvetica Neue", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", "SF Mono", Consolas, monospace;
+
+  --nav-height: 4rem;
+}
+
+.light {
+  --background:        #faf8f5;
+  --foreground:        #1a1710;
+  --card:              #ffffff;
+  --card-foreground:   #1a1710;
+  --popover:           #ffffff;
+  --popover-foreground:#1a1710;
+
+  --primary:           #c87a35;
+  --primary-foreground:#faf8f5;
+  --accent:            #e8932a;
+  --accent-foreground: #faf8f5;
+
+  --secondary:         #f0ebe3;
+  --secondary-foreground: #3d3629;
+  --muted:             #f0ebe3;
+  --muted-foreground:  rgba(26, 23, 16, 0.55);
+
+  --border:            rgba(26, 23, 16, 0.12);
+  --input:             rgba(26, 23, 16, 0.06);
+  --ring:              #c87a35;
+
+  --destructive:       #e74c3c;
+  --destructive-foreground: #ffffff;
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-background:           var(--background);
+  --color-foreground:           var(--foreground);
+  --color-card:                 var(--card);
+  --color-card-foreground:      var(--card-foreground);
+  --color-primary:              var(--primary);
+  --color-primary-foreground:   var(--primary-foreground);
+  --color-accent:               var(--accent);
+  --color-accent-foreground:    var(--accent-foreground);
+  --color-secondary:            var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted:                var(--muted);
+  --color-muted-foreground:     var(--muted-foreground);
+  --color-border:               var(--border);
+  --color-input:                var(--input);
+  --color-ring:                 var(--ring);
+  --color-destructive:          var(--destructive);
+  --color-success:              var(--success);
+  --color-warning:              var(--warning);
+  --font-sans: var(--font-sans);
+  --font-mono: var(--font-mono);
+  --radius-sm: var(--radius-sm);
+  --radius:    var(--radius);
+  --radius-lg: var(--radius-lg);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+*, *::before, *::after { box-sizing: border-box; }
+
+html { height: 100%; -webkit-text-size-adjust: 100%; }
+
+body {
+  height: 100%;
+  background-color: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-sans);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+h1, h2, h3, h4, h5, h6 {
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+}
+
+:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
+}
+
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--muted-foreground); }
+
+* { -webkit-tap-highlight-color: transparent; }
+
+.safe-bottom { padding-bottom: env(safe-area-inset-bottom, 0px); }
+
+.pb-nav {
+  padding-bottom: calc(var(--nav-height) + env(safe-area-inset-bottom, 0px) + 1rem);
 }

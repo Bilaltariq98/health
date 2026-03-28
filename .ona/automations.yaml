@@ -1,0 +1,21 @@
+tasks:
+  install:
+    name: Install dependencies
+    description: Install pnpm dependencies for the Next.js app.
+    command: |
+      corepack enable
+      corepack prepare pnpm@latest --activate
+      pnpm install
+    triggeredBy:
+      - postDevcontainerStart
+
+services:
+  dev-server:
+    name: Dev Server
+    description: Next.js development server.
+    commands:
+      start: |
+        corepack enable
+        pnpm dev
+      ready: |
+        curl -f http://localhost:3000

@@ -1,0 +1,12 @@
+{
+  "name": "Health Tracker",
+  "image": "mcr.microsoft.com/devcontainers/javascript-node:22",
+  "features": {},
+  "forwardPorts": [3000],
+  "portsAttributes": {
+    "3000": {
+      "label": "Next.js Dev Server",
+      "onAutoForward": "openPreview"
+    }
+  }
+}
