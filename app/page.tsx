@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic";
+
 import Link from "next/link";
 import { db } from "@/lib/db/client";
 import { sessions } from "@/lib/db/schema";
