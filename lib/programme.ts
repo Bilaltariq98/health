@@ -548,3 +548,44 @@ export function getExercisesByPattern(pattern: MovementPattern): Exercise[] {
 export function getExercisesByMuscleGroup(group: MuscleGroup): Exercise[] {
   return Object.values(EXERCISES).filter((e) => e.muscleGroups.includes(group));
 }
+
+/**
+ * Given a list of completed session dates (ISO strings, newest first),
+ * returns whether a deload is due based on config.deloadEveryWeeks.
+ *
+ * Logic: count distinct calendar weeks with at least one session since the
+ * last gap of ≥ 7 days (proxy for a deload week). If that count ≥ deloadEveryWeeks,
+ * a deload is due.
+ */
+export function isDeloadDue(
+  sessionDates: string[],
+  deloadEveryWeeks: number
+): { due: boolean; weeksTraining: number } {
+  if (sessionDates.length === 0) return { due: false, weeksTraining: 0 };
+
+  // Sort oldest → newest
+  const sorted = [...sessionDates].sort();
+
+  // Count distinct ISO weeks since last rest week (gap ≥ 7 days)
+  const weeks = new Set<string>();
+  let lastDate: Date | null = null;
+
+  for (const dateStr of sorted) {
+    const date = new Date(dateStr);
+    if (lastDate) {
+      const gap = (date.getTime() - lastDate.getTime()) / (1000 * 60 * 60 * 24);
+      if (gap >= 7) {
+        // Gap detected — reset the counter (this was a deload/rest week)
+        weeks.clear();
+      }
+    }
+    // ISO week key: YYYY-Www
+    const jan4 = new Date(date.getFullYear(), 0, 4);
+    const week = Math.ceil(((date.getTime() - jan4.getTime()) / 86400000 + jan4.getDay() + 1) / 7);
+    weeks.add(`${date.getFullYear()}-W${week}`);
+    lastDate = date;
+  }
+
+  const weeksTraining = weeks.size;
+  return { due: weeksTraining >= deloadEveryWeeks, weeksTraining };
+}
