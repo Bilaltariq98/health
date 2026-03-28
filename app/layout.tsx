@@ -2,11 +2,12 @@ import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import { ThemeProvider } from "@/components/theme-provider";
 import { NavBar } from "@/components/nav-bar";
+import { SWRegister } from "./sw-register";
 
 export const metadata: Metadata = {
   title: "Health",
   description: "Personal health tracker — workouts, nutrition, progress.",
-  manifest: "/manifest.json",
+  manifest: "/manifest.webmanifest",
   appleWebApp: { capable: true, statusBarStyle: "black-translucent", title: "Health" },
 };
 
@@ -29,6 +30,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         >
           <main className="pb-nav min-h-screen">{children}</main>
           <NavBar />
+          <SWRegister />
         </ThemeProvider>
       </body>
     </html>

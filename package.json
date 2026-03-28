@@ -16,6 +16,7 @@
   },
   "dependencies": {
     "@libsql/client": "^0.17.2",
+    "@serwist/sw": "^9.5.7",
     "clsx": "^2.1.1",
     "drizzle-orm": "^0.45.2",
     "nanoid": "^5.1.7",

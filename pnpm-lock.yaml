@@ -11,6 +11,9 @@ importers:
       '@libsql/client':
         specifier: ^0.17.2
         version: 0.17.2
+      '@serwist/sw':
+        specifier: ^9.5.7
+        version: 9.5.7(browserslist@4.28.1)(typescript@5.9.3)
       clsx:
         specifier: ^2.1.1
         version: 2.1.1
@@ -1216,6 +1219,14 @@ packages:
     peerDependenciesMeta:
       '@serwist/cli':
         optional: true
+      typescript:
+        optional: true
+
+  '@serwist/sw@9.5.7':
+    resolution: {integrity: sha512-I94tdmncBE/G0RCmhxLHHWE7RbJLFC+6Td+tJCXeI9tnGvWG1a6TIta1qEnjzj09b1x/0yNQBBqo2JmTBKYZ5g==}
+    peerDependencies:
+      typescript: '>=5.0.0'
+    peerDependenciesMeta:
       typescript:
         optional: true
 
@@ -4572,6 +4583,14 @@ snapshots:
       typescript: 5.9.3
     transitivePeerDependencies:
       - webpack
+
+  '@serwist/sw@9.5.7(browserslist@4.28.1)(typescript@5.9.3)':
+    dependencies:
+      serwist: 9.5.7(browserslist@4.28.1)(typescript@5.9.3)
+    optionalDependencies:
+      typescript: 5.9.3
+    transitivePeerDependencies:
+      - browserslist
 
   '@serwist/utils@9.5.7(browserslist@4.28.1)':
     optionalDependencies:
