@@ -1,0 +1,21 @@
+#!/bin/sh
+set -e
+
+# Start Tailscale daemon in the background
+tailscaled --state=/var/lib/tailscale/tailscaled.state --socket=/var/run/tailscale/tailscaled.sock &
+
+# Wait for tailscaled socket to be ready
+for i in $(seq 1 10); do
+  if [ -S /var/run/tailscale/tailscaled.sock ]; then
+    break
+  fi
+  sleep 1
+done
+
+# Authenticate and join the tailnet
+tailscale up --authkey="${TAILSCALE_AUTHKEY}" --hostname=health --accept-routes
+
+echo "Tailscale is up, starting Next.js..."
+
+# Start the Next.js app
+exec node /app/server.js
