@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic";
+
 import { AddMealForm } from "./add-meal-form";
 import { db } from "@/lib/db/client";
 import { meals } from "@/lib/db/schema";
