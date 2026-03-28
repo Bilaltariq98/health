@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "c50de5ee-4fa9-4fa8-83d4-21f1b8a3b4fe",
+  "id": "848ed970-0bad-4d49-8c86-710220c7045b",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "tables": {
     "events": {
@@ -199,8 +199,15 @@
           "notNull": true,
           "autoincrement": false
         },
-        "day_type": {
-          "name": "day_type",
+        "session_index": {
+          "name": "session_index",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "preferred_day": {
+          "name": "preferred_day",
           "type": "text",
           "primaryKey": false,
           "notNull": true,

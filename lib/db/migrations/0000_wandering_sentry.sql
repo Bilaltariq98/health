@@ -31,7 +31,8 @@ CREATE TABLE `measurements` (
 CREATE TABLE `sessions` (
 	`id` text PRIMARY KEY NOT NULL,
 	`date` text NOT NULL,
-	`day_type` text NOT NULL,
+	`session_index` integer NOT NULL,
+	`preferred_day` text NOT NULL,
 	`intent` text NOT NULL,
 	`programme_version` text NOT NULL,
 	`started_at` text NOT NULL,

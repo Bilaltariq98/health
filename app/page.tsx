@@ -18,7 +18,7 @@ import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ThemeToggle } from "@/components/theme-toggle";
-import { formatDuration } from "@/lib/utils";
+import { formatDuration, formatSessionDate } from "@/lib/utils";
 
 const intentLabels: Record<string, string> = {
   "lower-push": "Lower + Push",
@@ -30,6 +30,7 @@ export default async function DashboardPage() {
   // Fetch recent completed sessions for history-aware scheduling
   const recentSessions = await db
     .select({
+      id: sessions.id,
       date: sessions.date,
       sessionIndex: sessions.sessionIndex,
       completedAt: sessions.completedAt,
@@ -68,6 +69,17 @@ export default async function DashboardPage() {
   const hour = now.getHours();
   const greeting = hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
 
+  // This week's completion
+  const startOfWeek = new Date(now);
+  startOfWeek.setDate(now.getDate() - now.getDay());
+  const weekStart = startOfWeek.toISOString().split("T")[0];
+  const doneThisWeek = new Set(
+    recentSessions.filter((s) => s.date >= weekStart).map((s) => s.sessionIndex)
+  );
+
+  // Last 5 sessions for recent activity
+  const recentActivity = recentSessions.slice(0, 5);
+
   return (
     <div className="max-w-lg mx-auto px-4 pt-6 space-y-5">
       {/* Header */}
@@ -85,7 +97,7 @@ export default async function DashboardPage() {
       {deloadDue && (
         <div className="rounded-[var(--radius-lg)] bg-[var(--warning)]/10 border border-[var(--warning)]/30 px-4 py-3">
           <div className="flex items-start gap-2">
-            <span className="text-[var(--warning)] text-base mt-0.5">⚠</span>
+            <span className="text-[var(--warning)] text-base mt-0.5">!</span>
             <div>
               <p className="text-sm font-semibold text-[var(--warning)]">Deload week due</p>
               <p className="text-xs text-[var(--muted-foreground)] mt-0.5">
@@ -103,7 +115,7 @@ export default async function DashboardPage() {
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2 flex-wrap">
               <Badge variant={isPreferredToday ? "primary" : "muted"}>
-                {isPreferredToday ? "Today" : `Next up · Session ${nextSession.index + 1}`}
+                {isPreferredToday ? "Today" : `Next up`}
               </Badge>
               <Badge variant="muted">{intentLabels[nextSession.intent]}</Badge>
             </div>
@@ -112,7 +124,7 @@ export default async function DashboardPage() {
           <h2 className="text-lg font-semibold mt-2">{nextSession.label}</h2>
           {!isPreferredToday && (
             <p className="text-xs text-[var(--muted-foreground)] mt-0.5">
-              Preferred day: {nextSession.preferredDayName} — but you can start it any time
+              Preferred day: {nextSession.preferredDayName} — start it any time
             </p>
           )}
         </CardHeader>
@@ -128,15 +140,12 @@ export default async function DashboardPage() {
                   <div className="flex-1 min-w-0">
                     <span className="text-sm font-medium truncate block">{ex.name}</span>
                     <span className="text-xs text-[var(--muted-foreground)]">
-                      {ex.sets} × {ex.reps}
+                      {ex.sets} x {ex.reps}
                       {ex.restSeconds > 0
                         ? ` · ${ex.restSeconds >= 60 ? `${ex.restSeconds / 60}min` : `${ex.restSeconds}s`} rest`
                         : ""}
                     </span>
                   </div>
-                  <Badge variant="muted" className="text-[10px] flex-shrink-0">
-                    {ex.movementPattern.replace(/-/g, " ")}
-                  </Badge>
                 </li>
               );
             })}
@@ -158,99 +167,86 @@ export default async function DashboardPage() {
         </CardContent>
       </Card>
 
-      {/* Stats strip */}
-      {totalSessions > 0 && (
-        <div className="grid grid-cols-3 gap-3">
-          {[
-            { label: "Sessions", value: totalSessions },
-            { label: "Weeks training", value: weeksTraining },
-            { label: "Avg duration", value: avgDuration ? formatDuration(avgDuration) : "—" },
-          ].map(({ label, value }) => (
-            <Card key={label} className="p-3 text-center">
-              <p className="text-lg font-bold">{value}</p>
-              <p className="text-xs text-[var(--muted-foreground)] mt-0.5">{label}</p>
-            </Card>
-          ))}
-        </div>
-      )}
-
-      {/* Programme overview */}
-      <Card>
-        <CardHeader>
-          <h2 className="text-sm font-semibold text-[var(--muted-foreground)] uppercase tracking-wider">
-            Programme
-          </h2>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-3 gap-2">
+      {/* Week at a glance + stats */}
+      <div className="grid grid-cols-2 gap-3">
+        {/* Week progress */}
+        <Card className="p-4">
+          <p className="text-xs text-[var(--muted-foreground)] font-medium uppercase tracking-wider mb-2">
+            This week
+          </p>
+          <div className="flex gap-2">
             {PROGRAMME.map((session) => {
+              const done = doneThisWeek.has(session.index);
               const isNext = session.index === nextSession.index;
-              const doneThisWeek = recentSessions.some((s) => {
-                const d = new Date(s.date);
-                const startOfWeek = new Date(now);
-                startOfWeek.setDate(now.getDate() - now.getDay());
-                return s.sessionIndex === session.index && d >= startOfWeek;
-              });
               return (
-                <Link key={session.index} href={`/workouts/active?session=${session.index}`}>
-                  <div className={`rounded-[var(--radius)] p-3 text-center relative cursor-pointer transition-colors ${
-                    isNext
-                      ? "bg-[var(--primary)]/15 border border-[var(--primary)]/30"
-                      : "bg-[var(--secondary)] hover:bg-[var(--muted)]"
-                  }`}>
-                    {doneThisWeek && (
-                      <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-[var(--success)]" />
-                    )}
-                    <p className="text-xs font-semibold uppercase tracking-wide text-[var(--muted-foreground)]">
-                      S{session.index + 1}
-                    </p>
-                    <p className="text-xs mt-1 text-[var(--foreground)] leading-tight">
-                      {intentLabels[session.intent]}
-                    </p>
-                    <p className="text-[10px] text-[var(--muted-foreground)] mt-0.5">
-                      {session.preferredDayName}
-                    </p>
-                  </div>
-                </Link>
+                <div
+                  key={session.index}
+                  className={`flex-1 h-2 rounded-full ${
+                    done
+                      ? "bg-[var(--success)]"
+                      : isNext
+                        ? "bg-[var(--primary)]/40"
+                        : "bg-[var(--secondary)]"
+                  }`}
+                />
               );
             })}
           </div>
-        </CardContent>
-      </Card>
+          <p className="text-xs text-[var(--muted-foreground)] mt-2">
+            {doneThisWeek.size}/{PROGRAMME.length} sessions
+          </p>
+        </Card>
 
-      {/* Quick links */}
-      <div className="grid grid-cols-2 gap-3">
-        <Link href="/progress">
-          <Card className="p-4 hover:border-[var(--primary)]/40 transition-colors cursor-pointer">
-            <div className="flex items-center gap-3">
-              <div className="w-9 h-9 rounded-[var(--radius)] bg-[var(--primary)]/15 flex items-center justify-center flex-shrink-0">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
-                </svg>
-              </div>
-              <div>
-                <p className="text-sm font-medium">Progress</p>
-                <p className="text-xs text-[var(--muted-foreground)]">Strength trends</p>
-              </div>
-            </div>
-          </Card>
-        </Link>
-        <Link href="/workouts">
-          <Card className="p-4 hover:border-[var(--primary)]/40 transition-colors cursor-pointer">
-            <div className="flex items-center gap-3">
-              <div className="w-9 h-9 rounded-[var(--radius)] bg-[var(--primary)]/15 flex items-center justify-center flex-shrink-0">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M6 4v16M18 4v16M3 8h3M18 8h3M3 16h3M18 16h3M6 12h12"/>
-                </svg>
-              </div>
-              <div>
-                <p className="text-sm font-medium">History</p>
-                <p className="text-xs text-[var(--muted-foreground)]">Past sessions</p>
-              </div>
-            </div>
-          </Card>
-        </Link>
+        {/* Stats */}
+        <Card className="p-4">
+          <p className="text-xs text-[var(--muted-foreground)] font-medium uppercase tracking-wider mb-2">
+            Overall
+          </p>
+          <p className="text-lg font-bold">{totalSessions} <span className="text-xs font-normal text-[var(--muted-foreground)]">sessions</span></p>
+          <p className="text-xs text-[var(--muted-foreground)] mt-0.5">
+            {weeksTraining} weeks · avg {avgDuration ? formatDuration(avgDuration) : "—"}
+          </p>
+        </Card>
       </div>
+
+      {/* Recent activity */}
+      {recentActivity.length > 0 && (
+        <div>
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="text-sm font-semibold text-[var(--muted-foreground)] uppercase tracking-wider">
+              Recent
+            </h2>
+            <Link href="/workouts" className="text-xs text-[var(--primary)] hover:underline">
+              View all
+            </Link>
+          </div>
+          <div className="space-y-2">
+            {recentActivity.map((s) => (
+              <Link key={s.id} href={`/workouts/${s.id}`}>
+                <div className="flex items-center gap-3 px-3 py-2.5 rounded-[var(--radius)] bg-[var(--card)] border border-[var(--border)] hover:border-[var(--primary)]/30 transition-colors cursor-pointer">
+                  <div className="w-9 h-9 rounded-full bg-[var(--secondary)] flex flex-col items-center justify-center flex-shrink-0">
+                    <span className="text-[9px] text-[var(--muted-foreground)] leading-none font-medium">
+                      {new Date(s.date).toLocaleDateString("en-GB", { weekday: "short" })}
+                    </span>
+                    <span className="text-xs font-bold leading-tight">
+                      {new Date(s.date).getDate()}
+                    </span>
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <span className="text-sm font-medium">{intentLabels[s.intent]}</span>
+                    <p className="text-xs text-[var(--muted-foreground)]">
+                      {s.durationSeconds ? formatDuration(s.durationSeconds) : "—"}
+                    </p>
+                  </div>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-[var(--muted-foreground)] flex-shrink-0">
+                    <path d="M9 18l6-6-6-6" />
+                  </svg>
+                </div>
+              </Link>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
