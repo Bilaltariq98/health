@@ -113,8 +113,10 @@ export default async function WorkoutsPage() {
                     : "bg-[var(--card)] border border-[var(--border)] hover:border-[var(--primary)]/30"
                 }`}
               >
-                {done && (
-                  <span className="absolute top-2 right-2 w-2.5 h-2.5 rounded-full bg-[var(--success)]" />
+                {(done || isNext) && (
+                  <span className={`absolute top-2 right-2 w-2.5 h-2.5 rounded-full ${
+                    done ? "bg-[var(--success)]" : "bg-[var(--primary)]"
+                  }`} />
                 )}
                 <div
                   className={`w-8 h-8 rounded-full mx-auto flex items-center justify-center text-sm font-bold ${
@@ -131,9 +133,6 @@ export default async function WorkoutsPage() {
                 <p className="text-[10px] text-[var(--muted-foreground)] mt-0.5">
                   {session.preferredDayName}
                 </p>
-                {isNext && (
-                  <p className="text-[10px] text-[var(--primary)] font-semibold mt-1">Next up</p>
-                )}
               </div>
             </Link>
           );
