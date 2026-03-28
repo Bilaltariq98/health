@@ -21,8 +21,9 @@ import { integer, real, sqliteTable, text } from "drizzle-orm/sqlite-core";
 
 export const sessions = sqliteTable("sessions", {
   id: text("id").primaryKey(), // nanoid
-  date: text("date").notNull(), // ISO date YYYY-MM-DD
-  dayType: text("day_type").notNull(), // "tuesday" | "wednesday" | "friday"
+  date: text("date").notNull(), // ISO date YYYY-MM-DD — actual date performed
+  sessionIndex: integer("session_index").notNull(), // 0-based index into PROGRAMME array
+  preferredDay: text("preferred_day").notNull(), // e.g. "Tuesday" — hint from config at log time
   intent: text("intent").notNull(), // "lower-push" | "upper-pull" | "full-body-power"
   programmeVersion: text("programme_version").notNull(), // semver from lib/programme.ts
   startedAt: text("started_at").notNull(), // ISO datetime

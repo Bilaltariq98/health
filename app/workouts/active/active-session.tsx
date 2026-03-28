@@ -4,13 +4,13 @@ import { useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { nanoid } from "nanoid";
 import {
-  PROGRAMME,
   getExercise,
+  getSession,
   WARMUP,
   COOLDOWN,
   PROGRAMME_VERSION,
   type Exercise,
-  type DayKey,
+  type ProgrammeSession,
 } from "@/lib/programme";
 import { config, formatWeight, weightPlaceholder } from "@/lib/config";
 import { today } from "@/lib/utils";
@@ -64,9 +64,9 @@ async function apiPatch(path: string, body: unknown) {
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
-export function ActiveSession({ day }: { day: DayKey }) {
+export function ActiveSession({ sessionIndex }: { sessionIndex: number }) {
   const router = useRouter();
-  const session = PROGRAMME.find((s) => s.key === day)!;
+  const session: ProgrammeSession = getSession(sessionIndex);
   const exercises = session.exercises.map(getExercise);
 
   const [phase, setPhase] = useState<Phase>("warmup");
@@ -79,7 +79,6 @@ export function ActiveSession({ day }: { day: DayKey }) {
   const [draft, setDraft] = useState({ reps: "", weight: "", distance: "", rpe: "", notes: "" });
   const [saving, setSaving] = useState(false);
 
-  // Session ID created once when workout starts (after warm-up)
   const sessionIdRef = useRef<string | null>(null);
   const startedAtRef = useRef<string | null>(null);
 
@@ -90,7 +89,6 @@ export function ActiveSession({ day }: { day: DayKey }) {
   const exerciseDone = setsLogged >= targetSets;
   const lastSet = currentLog.sets[currentLog.sets.length - 1] ?? null;
 
-  // Called when warm-up is done — creates the session row
   async function startWorkout() {
     const id = nanoid();
     const startedAt = new Date().toISOString();
@@ -100,7 +98,8 @@ export function ActiveSession({ day }: { day: DayKey }) {
     await apiPost("/api/sessions", {
       id,
       date: today(),
-      dayType: day,
+      sessionIndex: session.index,
+      preferredDay: session.preferredDayName,
       intent: session.intent,
       programmeVersion: PROGRAMME_VERSION,
       startedAt,
@@ -126,7 +125,6 @@ export function ActiveSession({ day }: { day: DayKey }) {
     );
     setDraft((d) => ({ ...d, reps: "", rpe: "", notes: "" }));
 
-    // Persist to DB
     if (sessionIdRef.current) {
       const ex = currentExercise;
       await apiPost("/api/sets", {
@@ -177,7 +175,7 @@ export function ActiveSession({ day }: { day: DayKey }) {
     setPhase("complete");
   }
 
-  // ── Warm-up phase ──────────────────────────────────────────────────────────
+  // ── Warm-up ────────────────────────────────────────────────────────────────
   if (phase === "warmup") {
     return (
       <FullScreenShell onExit={() => router.back()}>
@@ -186,9 +184,7 @@ export function ActiveSession({ day }: { day: DayKey }) {
           <div className="flex-1 overflow-y-auto space-y-3 mt-4">
             {WARMUP.map((item, i) => (
               <div key={i} className="flex items-start gap-3 p-3 rounded-[var(--radius-lg)] bg-[var(--secondary)]">
-                <span className="w-6 h-6 rounded-full bg-[var(--primary)]/20 text-[var(--primary)] text-xs flex items-center justify-center flex-shrink-0 font-mono mt-0.5">
-                  {i + 1}
-                </span>
+                <span className="w-6 h-6 rounded-full bg-[var(--primary)]/20 text-[var(--primary)] text-xs flex items-center justify-center flex-shrink-0 font-mono mt-0.5">{i + 1}</span>
                 <div>
                   <p className="text-sm font-medium">{item.name}</p>
                   <p className="text-xs text-[var(--muted-foreground)] mt-0.5">{item.prescription}</p>
@@ -201,9 +197,7 @@ export function ActiveSession({ day }: { day: DayKey }) {
                 <p className="text-xs font-semibold text-[var(--primary)] mb-2">Frequency top-up</p>
                 {session.frequencyTopUp.map((id) => {
                   const ex = getExercise(id);
-                  return (
-                    <p key={id} className="text-sm">{ex.sets} × {ex.reps} {ex.name}</p>
-                  );
+                  return <p key={id} className="text-sm">{ex.sets} × {ex.reps} {ex.name}</p>;
                 })}
               </div>
             )}
@@ -216,7 +210,7 @@ export function ActiveSession({ day }: { day: DayKey }) {
     );
   }
 
-  // ── Cool-down phase ────────────────────────────────────────────────────────
+  // ── Cool-down ──────────────────────────────────────────────────────────────
   if (phase === "cooldown") {
     return (
       <FullScreenShell onExit={() => router.back()}>
@@ -225,9 +219,7 @@ export function ActiveSession({ day }: { day: DayKey }) {
           <div className="flex-1 overflow-y-auto space-y-3 mt-4">
             {COOLDOWN.map((item, i) => (
               <div key={i} className="flex items-start gap-3 p-3 rounded-[var(--radius-lg)] bg-[var(--secondary)]">
-                <span className="w-6 h-6 rounded-full bg-[var(--primary)]/20 text-[var(--primary)] text-xs flex items-center justify-center flex-shrink-0 font-mono mt-0.5">
-                  {i + 1}
-                </span>
+                <span className="w-6 h-6 rounded-full bg-[var(--primary)]/20 text-[var(--primary)] text-xs flex items-center justify-center flex-shrink-0 font-mono mt-0.5">{i + 1}</span>
                 <div>
                   <p className="text-sm font-medium">{item.name}</p>
                   <p className="text-xs text-[var(--muted-foreground)] mt-0.5">{item.prescription}</p>
@@ -244,7 +236,7 @@ export function ActiveSession({ day }: { day: DayKey }) {
     );
   }
 
-  // ── Complete phase ─────────────────────────────────────────────────────────
+  // ── Complete ───────────────────────────────────────────────────────────────
   if (phase === "complete") {
     const totalSets = logs.reduce((acc, l) => acc + l.sets.length, 0);
     return (
@@ -257,36 +249,28 @@ export function ActiveSession({ day }: { day: DayKey }) {
           </div>
           <div>
             <h2 className="text-3xl font-bold">Session complete</h2>
-            <p className="text-[var(--muted-foreground)] mt-2">
-              {totalSets} sets logged · {session.label.split("—")[0].trim()}
-            </p>
+            <p className="text-[var(--muted-foreground)] mt-2">{totalSets} sets · {session.label}</p>
           </div>
           <div className="w-full space-y-2 text-left">
             {logs.map((log) => {
               if (log.sets.length === 0) return null;
               const ex = getExercise(log.exerciseId);
-              const best = log.sets.reduce((b, s) =>
-                (s.weightKg ?? 0) > (b.weightKg ?? 0) ? s : b, log.sets[0]);
+              const best = log.sets.reduce((b, s) => ((s.weightKg ?? 0) > (b.weightKg ?? 0) ? s : b), log.sets[0]);
               return (
                 <div key={log.exerciseId} className="flex items-center justify-between text-sm">
                   <span className="text-[var(--muted-foreground)]">{ex.name}</span>
-                  <span className="font-medium">
-                    {log.sets.length} sets
-                    {best.weightKg ? ` · top ${formatWeight(best.weightKg)}` : ""}
-                  </span>
+                  <span className="font-medium">{log.sets.length} sets{best.weightKg ? ` · top ${formatWeight(best.weightKg)}` : ""}</span>
                 </div>
               );
             })}
           </div>
-          <Button size="xl" className="w-full" onClick={() => router.push("/workouts")}>
-            View history →
-          </Button>
+          <Button size="xl" className="w-full" onClick={() => router.push("/workouts")}>View history →</Button>
         </div>
       </FullScreenShell>
     );
   }
 
-  // ── Workout phase ──────────────────────────────────────────────────────────
+  // ── Workout ────────────────────────────────────────────────────────────────
   return (
     <FullScreenShell onExit={() => router.back()}>
       {showTimer && (
@@ -299,23 +283,17 @@ export function ActiveSession({ day }: { day: DayKey }) {
           onChangePreset={(s) => setTimerSeconds(s)}
         />
       )}
-
       <div className="flex flex-col h-full">
         <div className="h-1 bg-[var(--secondary)]">
           <div
             className="h-full bg-[var(--primary)] transition-all duration-500"
-            style={{
-              width: `${((exerciseIndex + (exerciseDone ? 1 : setsLogged / targetSets)) / exercises.length) * 100}%`,
-            }}
+            style={{ width: `${((exerciseIndex + (exerciseDone ? 1 : setsLogged / targetSets)) / exercises.length) * 100}%` }}
           />
         </div>
-
         <div className="flex-1 overflow-y-auto px-5 pt-5 pb-4 space-y-4">
           <div>
             <div className="flex items-center justify-between mb-1">
-              <span className="text-xs text-[var(--muted-foreground)]">
-                Exercise {exerciseIndex + 1} of {exercises.length}
-              </span>
+              <span className="text-xs text-[var(--muted-foreground)]">Exercise {exerciseIndex + 1} of {exercises.length}</span>
               <Badge variant="muted">{currentExercise.movementPattern.replace(/-/g, " ")}</Badge>
             </div>
             <h2 className="text-2xl font-bold leading-tight">{currentExercise.name}</h2>
@@ -324,18 +302,14 @@ export function ActiveSession({ day }: { day: DayKey }) {
               {currentExercise.restSeconds > 0 && ` · ${currentExercise.restSeconds}s rest`}
             </p>
           </div>
-
           <div className="rounded-[var(--radius-lg)] bg-[var(--secondary)] px-4 py-3 space-y-1">
             {currentExercise.cues.map((cue, i) => (
               <p key={i} className="text-sm text-[var(--muted-foreground)] flex items-start gap-2">
-                <span className="text-[var(--primary)] mt-0.5 flex-shrink-0">·</span>
-                {cue}
+                <span className="text-[var(--primary)] mt-0.5 flex-shrink-0">·</span>{cue}
               </p>
             ))}
           </div>
-
           <SetTracker total={targetSets} logged={setsLogged} sets={currentLog.sets} />
-
           {!exerciseDone && (
             <SetLogForm
               exercise={currentExercise}
@@ -346,32 +320,23 @@ export function ActiveSession({ day }: { day: DayKey }) {
               onLog={logSet}
             />
           )}
-
           {currentExercise.swaps && currentExercise.swaps.length > 0 && (
             <div className="rounded-[var(--radius)] bg-[var(--warning)]/10 border border-[var(--warning)]/20 px-3 py-2">
               <p className="text-xs text-[var(--warning)] font-medium mb-1">Swap options</p>
               {currentExercise.swaps.map((s) => (
-                <p key={s.id} className="text-xs text-[var(--muted-foreground)]">
-                  ↔ {s.id.replace(/-/g, " ")} — {s.reason}
-                </p>
+                <p key={s.id} className="text-xs text-[var(--muted-foreground)]">↔ {s.id.replace(/-/g, " ")} — {s.reason}</p>
               ))}
             </div>
           )}
         </div>
-
         <div className="px-5 pb-8 pt-3 border-t border-[var(--border)]">
           {exerciseDone ? (
             <Button size="xl" className="w-full" onClick={nextExercise}>
-              {exerciseIndex < exercises.length - 1
-                ? `Next: ${exercises[exerciseIndex + 1].name} →`
-                : "Finish workout →"}
+              {exerciseIndex < exercises.length - 1 ? `Next: ${exercises[exerciseIndex + 1].name} →` : "Finish workout →"}
             </Button>
           ) : (
             <button
-              onClick={() => {
-                setTimerSeconds(currentExercise.restSeconds || config.restTimerPresets[1]);
-                setShowTimer(true);
-              }}
+              onClick={() => { setTimerSeconds(currentExercise.restSeconds || config.restTimerPresets[1]); setShowTimer(true); }}
               className="w-full text-center text-sm text-[var(--muted-foreground)] py-3"
             >
               Start rest timer manually
@@ -389,13 +354,8 @@ function FullScreenShell({ children, onExit }: { children: React.ReactNode; onEx
   return (
     <div className="fixed inset-0 z-40 bg-[var(--background)] flex flex-col">
       <div className="flex items-center justify-between px-4 h-12 border-b border-[var(--border)] flex-shrink-0">
-        <button
-          onClick={onExit}
-          className="flex items-center gap-1.5 text-sm text-[var(--muted-foreground)] hover:text-[var(--foreground)] transition-colors"
-        >
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M19 12H5M12 5l-7 7 7 7"/>
-          </svg>
+        <button onClick={onExit} className="flex items-center gap-1.5 text-sm text-[var(--muted-foreground)] hover:text-[var(--foreground)] transition-colors">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 12H5M12 5l-7 7 7 7"/></svg>
           Exit
         </button>
         <span className="text-xs text-[var(--muted-foreground)] font-mono">
@@ -429,24 +389,15 @@ function SetTracker({ total, logged, sets }: { total: number; logged: number; se
           const done = !!set;
           const current = i === logged;
           return (
-            <div
-              key={i}
-              className={cn(
-                "flex flex-col items-center justify-center rounded-[var(--radius)] transition-all w-16 h-16",
-                done
-                  ? "bg-[var(--primary)] text-[var(--primary-foreground)]"
-                  : current
-                    ? "border-2 border-[var(--primary)] text-[var(--primary)]"
-                    : "border border-[var(--border)] text-[var(--muted-foreground)] opacity-50"
-              )}
-            >
+            <div key={i} className={cn(
+              "flex flex-col items-center justify-center rounded-[var(--radius)] transition-all w-16 h-16",
+              done ? "bg-[var(--primary)] text-[var(--primary-foreground)]"
+                : current ? "border-2 border-[var(--primary)] text-[var(--primary)]"
+                : "border border-[var(--border)] text-[var(--muted-foreground)] opacity-50"
+            )}>
               <span className="text-xs font-medium">Set {i + 1}</span>
-              {done && set.weightKg != null && (
-                <span className="text-xs font-bold mt-0.5">{formatWeight(set.weightKg)}</span>
-              )}
-              {done && set.reps != null && (
-                <span className="text-[10px] opacity-80">{set.reps} reps</span>
-              )}
+              {done && set.weightKg != null && <span className="text-xs font-bold mt-0.5">{formatWeight(set.weightKg)}</span>}
+              {done && set.reps != null && <span className="text-[10px] opacity-80">{set.reps} reps</span>}
               {!done && current && <span className="text-[10px] mt-0.5">now</span>}
             </div>
           );
@@ -456,37 +407,17 @@ function SetTracker({ total, logged, sets }: { total: number; logged: number; se
   );
 }
 
-interface DraftState {
-  reps: string;
-  weight: string;
-  distance: string;
-  rpe: string;
-  notes: string;
-}
+interface DraftState { reps: string; weight: string; distance: string; rpe: string; notes: string; }
 
-function SetLogForm({
-  exercise,
-  setNumber,
-  lastSet,
-  draft,
-  onChange,
-  onLog,
-}: {
-  exercise: Exercise;
-  setNumber: number;
-  lastSet: LoggedSet | null;
-  draft: DraftState;
-  onChange: (d: DraftState) => void;
-  onLog: () => void;
+function SetLogForm({ exercise, setNumber, lastSet, draft, onChange, onLog }: {
+  exercise: Exercise; setNumber: number; lastSet: LoggedSet | null;
+  draft: DraftState; onChange: (d: DraftState) => void; onLog: () => void;
 }) {
   const mode = exercise.loggingMode;
   const showWeight = mode === "reps-weight" || mode === "distance-weight";
   const showReps = mode === "reps-weight" || mode === "reps-only" || mode === "complex";
   const showDistance = mode === "distance-weight" || mode === "distance-only";
-  const canLog =
-    (showReps && draft.reps !== "") ||
-    (showDistance && draft.distance !== "") ||
-    mode === "duration";
+  const canLog = (showReps && draft.reps !== "") || (showDistance && draft.distance !== "") || mode === "duration";
 
   return (
     <div className="rounded-[var(--radius-lg)] bg-[var(--card)] border border-[var(--border)] p-4 space-y-3">
@@ -494,81 +425,36 @@ function SetLogForm({
         <span className="text-sm font-semibold">Set {setNumber}</span>
         {lastSet && (
           <button
-            onClick={() =>
-              onChange({
-                ...draft,
-                reps: lastSet.reps?.toString() ?? "",
-                weight: lastSet.weightKg?.toString() ?? "",
-                distance: lastSet.distanceMetres?.toString() ?? "",
-              })
-            }
+            onClick={() => onChange({ ...draft, reps: lastSet.reps?.toString() ?? "", weight: lastSet.weightKg?.toString() ?? "", distance: lastSet.distanceMetres?.toString() ?? "" })}
             className="text-xs text-[var(--primary)] hover:underline"
-          >
-            Copy last set
-          </button>
+          >Copy last set</button>
         )}
       </div>
-
       <div className="grid grid-cols-2 gap-3">
         {showReps && (
           <div>
-            <label className="text-xs text-[var(--muted-foreground)] mb-1 block">
-              {mode === "complex" ? "Reps / side" : "Reps"}
-            </label>
-            <Input
-              type="number"
-              inputMode="numeric"
-              placeholder={lastSet?.reps?.toString() ?? "0"}
-              value={draft.reps}
-              onChange={(e) => onChange({ ...draft, reps: e.target.value })}
-            />
+            <label className="text-xs text-[var(--muted-foreground)] mb-1 block">{mode === "complex" ? "Reps / side" : "Reps"}</label>
+            <Input type="number" inputMode="numeric" placeholder={lastSet?.reps?.toString() ?? "0"} value={draft.reps} onChange={(e) => onChange({ ...draft, reps: e.target.value })} />
           </div>
         )}
         {showWeight && (
           <div>
-            <label className="text-xs text-[var(--muted-foreground)] mb-1 block">
-              Weight ({weightPlaceholder})
-            </label>
-            <Input
-              type="number"
-              inputMode="decimal"
-              placeholder={lastSet?.weightKg?.toString() ?? weightPlaceholder}
-              value={draft.weight}
-              onChange={(e) => onChange({ ...draft, weight: e.target.value })}
-            />
+            <label className="text-xs text-[var(--muted-foreground)] mb-1 block">Weight ({weightPlaceholder})</label>
+            <Input type="number" inputMode="decimal" placeholder={lastSet?.weightKg?.toString() ?? weightPlaceholder} value={draft.weight} onChange={(e) => onChange({ ...draft, weight: e.target.value })} />
           </div>
         )}
         {showDistance && (
           <div>
             <label className="text-xs text-[var(--muted-foreground)] mb-1 block">Distance (m)</label>
-            <Input
-              type="number"
-              inputMode="decimal"
-              placeholder="30"
-              value={draft.distance}
-              onChange={(e) => onChange({ ...draft, distance: e.target.value })}
-            />
+            <Input type="number" inputMode="decimal" placeholder="30" value={draft.distance} onChange={(e) => onChange({ ...draft, distance: e.target.value })} />
           </div>
         )}
         <div>
-          <label className="text-xs text-[var(--muted-foreground)] mb-1 block">
-            RPE <span className="opacity-60">(optional)</span>
-          </label>
-          <Input
-            type="number"
-            inputMode="numeric"
-            placeholder="1–10"
-            min={1}
-            max={10}
-            value={draft.rpe}
-            onChange={(e) => onChange({ ...draft, rpe: e.target.value })}
-          />
+          <label className="text-xs text-[var(--muted-foreground)] mb-1 block">RPE <span className="opacity-60">(optional)</span></label>
+          <Input type="number" inputMode="numeric" placeholder="1–10" min={1} max={10} value={draft.rpe} onChange={(e) => onChange({ ...draft, rpe: e.target.value })} />
         </div>
       </div>
-
-      <Button size="lg" className="w-full" onClick={onLog} disabled={!canLog}>
-        Log set {setNumber}
-      </Button>
+      <Button size="lg" className="w-full" onClick={onLog} disabled={!canLog}>Log set {setNumber}</Button>
     </div>
   );
 }

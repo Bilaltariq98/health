@@ -5,7 +5,8 @@ import { z } from "zod";
 export const CreateSessionSchema = z.object({
   id: z.string().min(1),
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
-  dayType: z.enum(["tuesday", "wednesday", "friday"]),
+  sessionIndex: z.number().int().nonnegative(),
+  preferredDay: z.string().min(1), // e.g. "Tuesday" — from config at log time
   intent: z.enum(["lower-push", "upper-pull", "full-body-power"]),
   programmeVersion: z.string().min(1),
   startedAt: z.string().datetime(),
@@ -77,6 +78,7 @@ export const UpsertWaterSchema = z.object({
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 export type CreateSession = z.infer<typeof CreateSessionSchema>;
+// DayKey removed — sessions are now identified by sessionIndex, not day name
 export type CompleteSession = z.infer<typeof CompleteSessionSchema>;
 export type CreateSet = z.infer<typeof CreateSetSchema>;
 export type CreateMeal = z.infer<typeof CreateMealSchema>;

@@ -1,7 +1,7 @@
 import { db } from "@/lib/db/client";
 import { measurements } from "@/lib/db/schema";
 import { desc } from "drizzle-orm";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
 import { formatWeight } from "@/lib/config";
 import { formatSessionDate } from "@/lib/utils";
 import { LogBodyForm } from "./log-body-form";

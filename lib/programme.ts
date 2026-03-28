@@ -2,12 +2,16 @@
  * Single source of truth for the training programme.
  *
  * To change the programme: edit this file and bump PROGRAMME_VERSION.
- * Historical sets store programmeVersion at log time, so progress charts
- * remain coherent across routine changes — aggregated by movementPattern
- * and muscleGroups rather than exercise name.
+ *
+ * Sessions are ordered by index (0, 1, 2…), not tied to specific days.
+ * preferredDay is a hint for scheduling — the app tracks what was actually
+ * done and when, so you can train on any day without breaking history.
+ *
+ * Historical sets store programmeVersion + sessionIndex at log time, so
+ * progress charts remain coherent across routine changes.
  */
 
-export const PROGRAMME_VERSION = "1.0.0";
+export const PROGRAMME_VERSION = "1.1.0";
 
 // ─── Taxonomy ────────────────────────────────────────────────────────────────
 
@@ -22,10 +26,10 @@ export type MovementPattern =
   | "anti-rotation"
   | "plyometric"
   | "ballistic"
-  | "complex"; // multi-pattern (e.g. Turkish Get-Up)
+  | "complex";
 
 export type MuscleGroup =
-  | "posterior-chain" // hamstrings, glutes, lower back as a system
+  | "posterior-chain"
   | "glutes"
   | "quads"
   | "hamstrings"
@@ -59,12 +63,12 @@ export type Equipment =
   | "band";
 
 export type LoggingMode =
-  | "reps-weight" // standard: sets × reps @ weight
-  | "reps-only" // bodyweight movements
-  | "distance-weight" // carries: distance @ weight
-  | "distance-only" // sled push (bodyweight + sled)
-  | "duration" // holds, hangs
-  | "complex"; // TGU: reps per side
+  | "reps-weight"
+  | "reps-only"
+  | "distance-weight"
+  | "distance-only"
+  | "duration"
+  | "complex";
 
 // ─── Exercise definition ──────────────────────────────────────────────────────
 
@@ -73,79 +77,40 @@ export interface Exercise {
   id: string;
   name: string;
   movementPattern: MovementPattern;
-  /** Primary + secondary muscle groups. First entry = primary. */
   muscleGroups: [MuscleGroup, ...MuscleGroup[]];
   modality: Modality;
   equipment: Equipment[];
   loggingMode: LoggingMode;
-  /** Prescribed sets for this exercise in its session. */
   sets: number;
-  /** Rep target as a string to allow ranges ("6–8") or fixed ("5"). */
   reps: string;
-  /** Rest in seconds. */
   restSeconds: number;
-  /** Coaching notes shown during the active session. */
   cues: string[];
-  /** Swap-in alternatives if equipment unavailable or injury flares. */
   swaps?: { id: string; reason: string }[];
 }
 
-// ─── Warm-up ─────────────────────────────────────────────────────────────────
+// ─── Warm-up / cool-down ─────────────────────────────────────────────────────
 
 export interface WarmUpExercise {
   name: string;
-  prescription: string; // "5 per side", "30 seconds", etc.
+  prescription: string;
   purpose: string;
 }
 
 export const WARMUP: WarmUpExercise[] = [
-  {
-    name: "World's Greatest Stretch",
-    prescription: "5 per side",
-    purpose: "Hip, thoracic, and ankle mobility",
-  },
-  {
-    name: "Hip 90/90 Transitions",
-    prescription: "5 per side",
-    purpose: "Internal and external hip rotation",
-  },
-  {
-    name: "Band Pull-Aparts",
-    prescription: "15 reps",
-    purpose: "Rear delt activation, scapular health",
-  },
-  {
-    name: "Goblet Squat Hold",
-    prescription: "30 seconds",
-    purpose: "Deep squat mobility, ankle dorsiflexion",
-  },
-  {
-    name: "Dead Bugs",
-    prescription: "10 reps (5/side)",
-    purpose: "Core activation, pelvic stability",
-  },
+  { name: "World's Greatest Stretch", prescription: "5 per side", purpose: "Hip, thoracic, and ankle mobility" },
+  { name: "Hip 90/90 Transitions", prescription: "5 per side", purpose: "Internal and external hip rotation" },
+  { name: "Band Pull-Aparts", prescription: "15 reps", purpose: "Rear delt activation, scapular health" },
+  { name: "Goblet Squat Hold", prescription: "30 seconds", purpose: "Deep squat mobility, ankle dorsiflexion" },
+  { name: "Dead Bugs", prescription: "10 reps (5/side)", purpose: "Core activation, pelvic stability" },
 ];
 
 export const COOLDOWN: WarmUpExercise[] = [
-  {
-    name: "90/90 Hip Stretch",
-    prescription: "30 sec/side",
-    purpose: "Hip internal and external rotation",
-  },
-  {
-    name: "Couch Stretch",
-    prescription: "30 sec/side",
-    purpose: "Hip flexor and quad lengthening",
-  },
-  {
-    name: "Dead Hang from Bar",
-    prescription: "30–45 seconds",
-    purpose: "Shoulder decompression, spinal traction",
-  },
+  { name: "90/90 Hip Stretch", prescription: "30 sec/side", purpose: "Hip internal and external rotation" },
+  { name: "Couch Stretch", prescription: "30 sec/side", purpose: "Hip flexor and quad lengthening" },
+  { name: "Dead Hang from Bar", prescription: "30–45 seconds", purpose: "Shoulder decompression, spinal traction" },
 ];
 
 // ─── Exercise library ─────────────────────────────────────────────────────────
-// IDs are stable slugs. If you rename an exercise, keep the id the same.
 
 export const EXERCISES: Record<string, Exercise> = {
   "trap-bar-deadlift": {
@@ -156,20 +121,10 @@ export const EXERCISES: Record<string, Exercise> = {
     modality: "bilateral",
     equipment: ["trap-bar"],
     loggingMode: "reps-weight",
-    sets: 4,
-    reps: "5",
-    restSeconds: 150,
-    cues: [
-      "Low handles for full ROM",
-      "Exhale as you drive through the floor",
-      "Chest up, hips back to initiate",
-    ],
-    swaps: [
-      { id: "conventional-deadlift", reason: "No trap bar available" },
-      { id: "romanian-deadlift", reason: "Lower back fatigue" },
-    ],
+    sets: 4, reps: "5", restSeconds: 150,
+    cues: ["Low handles for full ROM", "Exhale as you drive through the floor", "Chest up, hips back to initiate"],
+    swaps: [{ id: "conventional-deadlift", reason: "No trap bar available" }, { id: "romanian-deadlift", reason: "Lower back fatigue" }],
   },
-
   "bulgarian-split-squat": {
     id: "bulgarian-split-squat",
     name: "Bulgarian Split Squat",
@@ -178,16 +133,9 @@ export const EXERCISES: Record<string, Exercise> = {
     modality: "unilateral",
     equipment: ["dumbbell"],
     loggingMode: "reps-weight",
-    sets: 3,
-    reps: "8",
-    restSeconds: 90,
-    cues: [
-      "2-second eccentric — control the descent",
-      "Front knee tracks over toes",
-      "Log reps per leg",
-    ],
+    sets: 3, reps: "8", restSeconds: 90,
+    cues: ["2-second eccentric — control the descent", "Front knee tracks over toes", "Log reps per leg"],
   },
-
   "db-overhead-press": {
     id: "db-overhead-press",
     name: "DB Overhead Press (standing)",
@@ -196,16 +144,9 @@ export const EXERCISES: Record<string, Exercise> = {
     modality: "bilateral",
     equipment: ["dumbbell"],
     loggingMode: "reps-weight",
-    sets: 3,
-    reps: "8",
-    restSeconds: 90,
-    cues: [
-      "Standing — engages core throughout",
-      "Exhale as you press",
-      "Don't hyperextend the lower back",
-    ],
+    sets: 3, reps: "8", restSeconds: 90,
+    cues: ["Standing — engages core throughout", "Exhale as you press", "Don't hyperextend the lower back"],
   },
-
   "cable-pallof-press": {
     id: "cable-pallof-press",
     name: "Cable Pallof Press",
@@ -214,16 +155,9 @@ export const EXERCISES: Record<string, Exercise> = {
     modality: "unilateral",
     equipment: ["cable"],
     loggingMode: "reps-weight",
-    sets: 3,
-    reps: "10",
-    restSeconds: 60,
-    cues: [
-      "Resist rotation — the cable wants to pull you",
-      "Log reps per side",
-      "Brace before pressing out",
-    ],
+    sets: 3, reps: "10", restSeconds: 60,
+    cues: ["Resist rotation — the cable wants to pull you", "Log reps per side", "Brace before pressing out"],
   },
-
   "farmer-carries": {
     id: "farmer-carries",
     name: "Farmer Carries",
@@ -232,16 +166,9 @@ export const EXERCISES: Record<string, Exercise> = {
     modality: "loaded-carry",
     equipment: ["dumbbell"],
     loggingMode: "distance-weight",
-    sets: 3,
-    reps: "30m",
-    restSeconds: 60,
-    cues: [
-      "Target ~50% bodyweight total to start",
-      "Tall posture, shoulders packed",
-      "Log total weight carried (both hands)",
-    ],
+    sets: 3, reps: "30m", restSeconds: 60,
+    cues: ["Target ~50% bodyweight total to start", "Tall posture, shoulders packed", "Log total weight carried (both hands)"],
   },
-
   "turkish-get-up": {
     id: "turkish-get-up",
     name: "Turkish Get-Up",
@@ -250,17 +177,9 @@ export const EXERCISES: Record<string, Exercise> = {
     modality: "unilateral",
     equipment: ["kettlebell"],
     loggingMode: "complex",
-    sets: 2,
-    reps: "3",
-    restSeconds: 0, // rest as needed
-    cues: [
-      "Done first — stabilisers are fresh",
-      "Slow and controlled. Quality over speed",
-      "Light weight — this is a movement skill",
-      "Eye on the bell throughout",
-    ],
+    sets: 2, reps: "3", restSeconds: 0,
+    cues: ["Done first — stabilisers are fresh", "Slow and controlled. Quality over speed", "Light weight — this is a movement skill", "Eye on the bell throughout"],
   },
-
   "pull-ups": {
     id: "pull-ups",
     name: "Pull-ups / Lat Pulldown",
@@ -269,16 +188,9 @@ export const EXERCISES: Record<string, Exercise> = {
     modality: "bilateral",
     equipment: ["bodyweight", "cable"],
     loggingMode: "reps-weight",
-    sets: 4,
-    reps: "6–8",
-    restSeconds: 120,
-    cues: [
-      "Pull-ups if you can; lat pulldown to build up",
-      "Log 0kg for bodyweight pull-ups",
-      "Full hang at the bottom",
-    ],
+    sets: 4, reps: "6–8", restSeconds: 120,
+    cues: ["Pull-ups if you can; lat pulldown to build up", "Log 0kg for bodyweight pull-ups", "Full hang at the bottom"],
   },
-
   "db-bench-press": {
     id: "db-bench-press",
     name: "DB Bench Press",
@@ -287,15 +199,9 @@ export const EXERCISES: Record<string, Exercise> = {
     modality: "bilateral",
     equipment: ["dumbbell"],
     loggingMode: "reps-weight",
-    sets: 3,
-    reps: "8",
-    restSeconds: 90,
-    cues: [
-      "Full ROM — dumbbells allow greater stretch at the bottom",
-      "Control the descent",
-    ],
+    sets: 3, reps: "8", restSeconds: 90,
+    cues: ["Full ROM — dumbbells allow greater stretch at the bottom", "Control the descent"],
   },
-
   "single-arm-cable-row": {
     id: "single-arm-cable-row",
     name: "Single-Arm Cable Row",
@@ -304,16 +210,9 @@ export const EXERCISES: Record<string, Exercise> = {
     modality: "unilateral",
     equipment: ["cable"],
     loggingMode: "reps-weight",
-    sets: 3,
-    reps: "10",
-    restSeconds: 60,
-    cues: [
-      "Unilateral — corrects left-right imbalances",
-      "Log reps per side",
-      "Initiate with the elbow, not the hand",
-    ],
+    sets: 3, reps: "10", restSeconds: 60,
+    cues: ["Unilateral — corrects left-right imbalances", "Log reps per side", "Initiate with the elbow, not the hand"],
   },
-
   "face-pulls": {
     id: "face-pulls",
     name: "Face Pulls",
@@ -322,12 +221,9 @@ export const EXERCISES: Record<string, Exercise> = {
     modality: "bilateral",
     equipment: ["cable"],
     loggingMode: "reps-weight",
-    sets: 3,
-    reps: "15",
-    restSeconds: 60,
+    sets: 3, reps: "15", restSeconds: 60,
     cues: ["Rope attachment", "Pull to forehead, elbows high", "Light weight, high quality"],
   },
-
   "kettlebell-swings": {
     id: "kettlebell-swings",
     name: "Kettlebell Swings",
@@ -336,16 +232,9 @@ export const EXERCISES: Record<string, Exercise> = {
     modality: "bilateral",
     equipment: ["kettlebell"],
     loggingMode: "reps-weight",
-    sets: 4,
-    reps: "12",
-    restSeconds: 60,
-    cues: [
-      "Russian-style — shoulder height",
-      "Explosive hip hinge, not a squat",
-      "Exhale sharply at the top",
-    ],
+    sets: 4, reps: "12", restSeconds: 60,
+    cues: ["Russian-style — shoulder height", "Explosive hip hinge, not a squat", "Exhale sharply at the top"],
   },
-
   "box-jumps": {
     id: "box-jumps",
     name: "Box Jumps",
@@ -354,18 +243,10 @@ export const EXERCISES: Record<string, Exercise> = {
     modality: "bilateral",
     equipment: ["box"],
     loggingMode: "reps-only",
-    sets: 3,
-    reps: "5",
-    restSeconds: 90,
-    cues: [
-      "Step down — don't jump down",
-      "Full reset between reps",
-    ],
-    swaps: [
-      { id: "med-ball-slams", reason: "Plantar fasciitis flare" },
-    ],
+    sets: 3, reps: "5", restSeconds: 90,
+    cues: ["Step down — don't jump down", "Full reset between reps"],
+    swaps: [{ id: "med-ball-slams", reason: "Plantar fasciitis flare" }],
   },
-
   "push-up-variations": {
     id: "push-up-variations",
     name: "Push-Up Variations",
@@ -374,15 +255,9 @@ export const EXERCISES: Record<string, Exercise> = {
     modality: "bilateral",
     equipment: ["bodyweight"],
     loggingMode: "reps-only",
-    sets: 3,
-    reps: "10–12",
-    restSeconds: 60,
-    cues: [
-      "Rotate: standard → diamond → feet-elevated across weeks",
-      "Note which variation in the set notes",
-    ],
+    sets: 3, reps: "10–12", restSeconds: 60,
+    cues: ["Rotate: standard → diamond → feet-elevated across weeks", "Note which variation in the set notes"],
   },
-
   "romanian-deadlift": {
     id: "romanian-deadlift",
     name: "Romanian Deadlift (slow eccentric)",
@@ -391,16 +266,9 @@ export const EXERCISES: Record<string, Exercise> = {
     modality: "bilateral",
     equipment: ["barbell", "dumbbell"],
     loggingMode: "reps-weight",
-    sets: 3,
-    reps: "8",
-    restSeconds: 90,
-    cues: [
-      "3-second lowering phase",
-      "Stop at mid-shin — don't round",
-      "Feel the hamstring stretch at the bottom",
-    ],
+    sets: 3, reps: "8", restSeconds: 90,
+    cues: ["3-second lowering phase", "Stop at mid-shin — don't round", "Feel the hamstring stretch at the bottom"],
   },
-
   "sled-push": {
     id: "sled-push",
     name: "Sled Push",
@@ -409,17 +277,10 @@ export const EXERCISES: Record<string, Exercise> = {
     modality: "bilateral",
     equipment: ["sled"],
     loggingMode: "distance-weight",
-    sets: 4,
-    reps: "20m",
-    restSeconds: 60,
+    sets: 4, reps: "20m", restSeconds: 60,
     cues: ["Low drive angle", "Powerful leg drive"],
-    swaps: [
-      { id: "battle-ropes", reason: "No sled available" },
-    ],
+    swaps: [{ id: "battle-ropes", reason: "No sled available" }],
   },
-
-  // ── Frequency top-ups (warm-up additions) ──────────────────────────────────
-
   "light-pull-ups-topup": {
     id: "light-pull-ups-topup",
     name: "Pull-up Top-up (light)",
@@ -428,12 +289,9 @@ export const EXERCISES: Record<string, Exercise> = {
     modality: "bilateral",
     equipment: ["bodyweight", "cable"],
     loggingMode: "reps-weight",
-    sets: 2,
-    reps: "5",
-    restSeconds: 0,
-    cues: ["Added to Tuesday warm-up for frequency", "Light — not a working set"],
+    sets: 2, reps: "5", restSeconds: 0,
+    cues: ["Added to session 1 warm-up for frequency", "Light — not a working set"],
   },
-
   "light-goblet-squat-topup": {
     id: "light-goblet-squat-topup",
     name: "Goblet Squat Top-up (light)",
@@ -442,34 +300,41 @@ export const EXERCISES: Record<string, Exercise> = {
     modality: "bilateral",
     equipment: ["dumbbell", "kettlebell"],
     loggingMode: "reps-weight",
-    sets: 2,
-    reps: "8",
-    restSeconds: 0,
-    cues: ["Added to Wednesday warm-up for frequency", "Light — mobility focus"],
+    sets: 2, reps: "8", restSeconds: 0,
+    cues: ["Added to session 2 warm-up for frequency", "Light — mobility focus"],
   },
 };
 
 // ─── Session definitions ──────────────────────────────────────────────────────
+//
+// Sessions are ordered by index. preferredDay is a scheduling hint only —
+// the app uses history to determine what's next, not the calendar.
+// To change the schedule: update preferredDay here. To add/remove sessions:
+// add/remove entries and bump PROGRAMME_VERSION.
 
-export type DayKey = "tuesday" | "wednesday" | "friday";
+export type SessionIntent = "lower-push" | "upper-pull" | "full-body-power";
 
-export interface SessionDay {
-  key: DayKey;
+export interface ProgrammeSession {
+  /** Stable 0-based index. Used as FK in DB. Never reorder without bumping PROGRAMME_VERSION. */
+  index: number;
   label: string;
-  /** Describes the training intent — stable across programme versions. */
-  intent: "lower-push" | "upper-pull" | "full-body-power";
-  /** Exercise IDs in order. */
+  /** The training intent — stable across programme versions for chart aggregation. */
+  intent: SessionIntent;
+  /** Preferred day of week (0=Sun … 6=Sat). Hint only — not enforced. */
+  preferredDay: number;
+  preferredDayName: string;
   exercises: string[];
-  /** Warm-up frequency top-up exercise IDs (prepended to warm-up). */
   frequencyTopUp?: string[];
   notes?: string;
 }
 
-export const PROGRAMME: SessionDay[] = [
+export const PROGRAMME: ProgrammeSession[] = [
   {
-    key: "tuesday",
-    label: "Tuesday — Lower Body + Push",
+    index: 0,
+    label: "Session 1 — Lower Body + Push",
     intent: "lower-push",
+    preferredDay: 2, // Tuesday
+    preferredDayName: "Tuesday",
     frequencyTopUp: ["light-pull-ups-topup"],
     exercises: [
       "trap-bar-deadlift",
@@ -480,9 +345,11 @@ export const PROGRAMME: SessionDay[] = [
     ],
   },
   {
-    key: "wednesday",
-    label: "Wednesday — Upper Body + Pull",
+    index: 1,
+    label: "Session 2 — Upper Body + Pull",
     intent: "upper-pull",
+    preferredDay: 3, // Wednesday
+    preferredDayName: "Wednesday",
     frequencyTopUp: ["light-goblet-squat-topup"],
     exercises: [
       "turkish-get-up",
@@ -494,9 +361,11 @@ export const PROGRAMME: SessionDay[] = [
     notes: "TGU is done first when stabilisers are fresh.",
   },
   {
-    key: "friday",
-    label: "Friday — Full Body Power + Conditioning",
+    index: 2,
+    label: "Session 3 — Full Body Power + Conditioning",
     intent: "full-body-power",
+    preferredDay: 5, // Friday
+    preferredDayName: "Friday",
     exercises: [
       "kettlebell-swings",
       "box-jumps",
@@ -507,55 +376,53 @@ export const PROGRAMME: SessionDay[] = [
   },
 ];
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
+// ─── Scheduling helpers ───────────────────────────────────────────────────────
 
-/** Returns today's scheduled session, or null if it's a rest day. */
-export function getTodaySession(): SessionDay | null {
-  const day = new Date().toLocaleDateString("en-GB", { weekday: "long" }).toLowerCase();
-  return PROGRAMME.find((s) => s.key === day) ?? null;
+/**
+ * Returns the next session to do, based on the last completed session index.
+ * If no history: returns session 0.
+ * Cycles: 0 → 1 → 2 → 0 → …
+ */
+export function getNextSession(lastSessionIndex: number | null): ProgrammeSession {
+  if (lastSessionIndex === null) return PROGRAMME[0];
+  const nextIndex = (lastSessionIndex + 1) % PROGRAMME.length;
+  return PROGRAMME[nextIndex];
 }
 
-/** Returns the next scheduled session from today. */
-export function getNextSession(): SessionDay {
-  const today = new Date().getDay(); // 0=Sun, 1=Mon, ...
-  const dayMap: Record<DayKey, number> = { tuesday: 2, wednesday: 3, friday: 5 };
-  const sorted = PROGRAMME.slice().sort(
-    (a, b) => dayMap[a.key] - dayMap[b.key]
-  );
-  return (
-    sorted.find((s) => dayMap[s.key] > today) ?? sorted[0]
-  );
+/**
+ * Returns the session suggested for today based on preferred days.
+ * Returns null if today isn't a preferred day for any session.
+ */
+export function getTodayPreferredSession(): ProgrammeSession | null {
+  const todayDow = new Date().getDay();
+  return PROGRAMME.find((s) => s.preferredDay === todayDow) ?? null;
 }
 
-/** Resolves an exercise ID to its definition. Throws if not found (config error). */
+/** Resolves a session by index. Throws if out of range. */
+export function getSession(index: number): ProgrammeSession {
+  const s = PROGRAMME[index];
+  if (!s) throw new Error(`Session index ${index} not found in programme`);
+  return s;
+}
+
+/** Resolves an exercise ID to its definition. Throws if not found. */
 export function getExercise(id: string): Exercise {
   const ex = EXERCISES[id];
   if (!ex) throw new Error(`Exercise "${id}" not found in programme config`);
   return ex;
 }
 
-/**
- * Returns all exercise IDs that share a movement pattern.
- * Used by progress charts to aggregate across programme versions.
- */
 export function getExercisesByPattern(pattern: MovementPattern): Exercise[] {
   return Object.values(EXERCISES).filter((e) => e.movementPattern === pattern);
 }
 
-/**
- * Returns all exercise IDs that target a muscle group (primary or secondary).
- */
 export function getExercisesByMuscleGroup(group: MuscleGroup): Exercise[] {
   return Object.values(EXERCISES).filter((e) => e.muscleGroups.includes(group));
 }
 
 /**
- * Given a list of completed session dates (ISO strings, newest first),
- * returns whether a deload is due based on config.deloadEveryWeeks.
- *
- * Logic: count distinct calendar weeks with at least one session since the
- * last gap of ≥ 7 days (proxy for a deload week). If that count ≥ deloadEveryWeeks,
- * a deload is due.
+ * Deload detection: counts distinct training weeks since last rest gap.
+ * Resets on any 7-day gap between sessions (proxy for a deload/rest week).
  */
 export function isDeloadDue(
   sessionDates: string[],
@@ -563,10 +430,7 @@ export function isDeloadDue(
 ): { due: boolean; weeksTraining: number } {
   if (sessionDates.length === 0) return { due: false, weeksTraining: 0 };
 
-  // Sort oldest → newest
   const sorted = [...sessionDates].sort();
-
-  // Count distinct ISO weeks since last rest week (gap ≥ 7 days)
   const weeks = new Set<string>();
   let lastDate: Date | null = null;
 
@@ -574,12 +438,8 @@ export function isDeloadDue(
     const date = new Date(dateStr);
     if (lastDate) {
       const gap = (date.getTime() - lastDate.getTime()) / (1000 * 60 * 60 * 24);
-      if (gap >= 7) {
-        // Gap detected — reset the counter (this was a deload/rest week)
-        weeks.clear();
-      }
+      if (gap >= 7) weeks.clear();
     }
-    // ISO week key: YYYY-Www
     const jan4 = new Date(date.getFullYear(), 0, 4);
     const week = Math.ceil(((date.getTime() - jan4.getTime()) / 86400000 + jan4.getDay() + 1) / 7);
     weeks.add(`${date.getFullYear()}-W${week}`);

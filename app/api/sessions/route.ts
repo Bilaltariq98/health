@@ -1,7 +1,7 @@
 import { db } from "@/lib/db/client";
-import { sessions, sets } from "@/lib/db/schema";
+import { sessions } from "@/lib/db/schema";
 import { CreateSessionSchema } from "@/lib/validators";
-import { desc, eq } from "drizzle-orm";
+import { desc } from "drizzle-orm";
 
 export async function GET() {
   const rows = await db

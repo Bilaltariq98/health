@@ -3,8 +3,8 @@ import { db } from "@/lib/db/client";
 import { sessions } from "@/lib/db/schema";
 import { desc, isNotNull } from "drizzle-orm";
 import {
-  getTodaySession,
   getNextSession,
+  getTodayPreferredSession,
   getExercise,
   WARMUP,
   PROGRAMME,
@@ -24,25 +24,29 @@ const intentLabels: Record<string, string> = {
   "full-body-power": "Full Body Power",
 };
 
-const dayLabels: Record<string, string> = {
-  tuesday: "Tue",
-  wednesday: "Wed",
-  friday: "Fri",
-};
-
 export default async function DashboardPage() {
-  const todaySession = getTodaySession();
-  const nextSession = getNextSession();
-  const displaySession = todaySession ?? nextSession;
-  const isToday = !!todaySession;
-
-  // Fetch recent sessions for stats + deload check
+  // Fetch recent completed sessions for history-aware scheduling
   const recentSessions = await db
-    .select({ date: sessions.date, completedAt: sessions.completedAt, durationSeconds: sessions.durationSeconds, intent: sessions.intent })
+    .select({
+      date: sessions.date,
+      sessionIndex: sessions.sessionIndex,
+      completedAt: sessions.completedAt,
+      durationSeconds: sessions.durationSeconds,
+      intent: sessions.intent,
+      preferredDay: sessions.preferredDay,
+    })
     .from(sessions)
     .where(isNotNull(sessions.completedAt))
     .orderBy(desc(sessions.startedAt))
     .limit(50);
+
+  // Next session: based on last completed session index, not the calendar
+  const lastIndex = recentSessions[0]?.sessionIndex ?? null;
+  const nextSession = getNextSession(lastIndex);
+
+  // Is today a preferred day for any session?
+  const todayPreferred = getTodayPreferredSession();
+  const isPreferredToday = todayPreferred?.index === nextSession.index;
 
   const { due: deloadDue, weeksTraining } = isDeloadDue(
     recentSessions.map((s) => s.date),
@@ -50,10 +54,13 @@ export default async function DashboardPage() {
   );
 
   const totalSessions = recentSessions.length;
-  const lastSession = recentSessions[0];
-  const avgDuration = recentSessions.filter((s) => s.durationSeconds).length > 0
-    ? Math.round(recentSessions.reduce((a, s) => a + (s.durationSeconds ?? 0), 0) / recentSessions.filter((s) => s.durationSeconds).length)
-    : null;
+  const avgDuration =
+    recentSessions.filter((s) => s.durationSeconds).length > 0
+      ? Math.round(
+          recentSessions.reduce((a, s) => a + (s.durationSeconds ?? 0), 0) /
+            recentSessions.filter((s) => s.durationSeconds).length
+        )
+      : null;
 
   const now = new Date();
   const hour = now.getHours();
@@ -80,30 +87,36 @@ export default async function DashboardPage() {
             <div>
               <p className="text-sm font-semibold text-[var(--warning)]">Deload week due</p>
               <p className="text-xs text-[var(--muted-foreground)] mt-0.5">
-                {weeksTraining} weeks of training logged. Reduce all weights by {Math.round((1 - config.deloadFactor) * 100)}% this week and focus on movement quality.
+                {weeksTraining} weeks of training logged. Reduce all weights by{" "}
+                {Math.round((1 - config.deloadFactor) * 100)}% this week and focus on movement quality.
               </p>
             </div>
           </div>
         </div>
       )}
 
-      {/* Today's / Next session card */}
+      {/* Next session card */}
       <Card>
         <CardHeader>
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Badge variant={isToday ? "primary" : "muted"}>
-                {isToday ? "Today" : `Next · ${dayLabels[displaySession.key]}`}
+            <div className="flex items-center gap-2 flex-wrap">
+              <Badge variant={isPreferredToday ? "primary" : "muted"}>
+                {isPreferredToday ? "Today" : `Next up · Session ${nextSession.index + 1}`}
               </Badge>
-              <Badge variant="muted">{intentLabels[displaySession.intent]}</Badge>
+              <Badge variant="muted">{intentLabels[nextSession.intent]}</Badge>
             </div>
             <span className="text-xs text-[var(--muted-foreground)]">v{PROGRAMME_VERSION}</span>
           </div>
-          <h2 className="text-lg font-semibold mt-2">{displaySession.label}</h2>
+          <h2 className="text-lg font-semibold mt-2">{nextSession.label}</h2>
+          {!isPreferredToday && (
+            <p className="text-xs text-[var(--muted-foreground)] mt-0.5">
+              Preferred day: {nextSession.preferredDayName} — but you can start it any time
+            </p>
+          )}
         </CardHeader>
         <CardContent>
           <ol className="space-y-2 mb-4">
-            {displaySession.exercises.map((id, i) => {
+            {nextSession.exercises.map((id, i) => {
               const ex = getExercise(id);
               return (
                 <li key={id} className="flex items-center gap-3">
@@ -114,7 +127,9 @@ export default async function DashboardPage() {
                     <span className="text-sm font-medium truncate block">{ex.name}</span>
                     <span className="text-xs text-[var(--muted-foreground)]">
                       {ex.sets} × {ex.reps}
-                      {ex.restSeconds > 0 ? ` · ${ex.restSeconds >= 60 ? `${ex.restSeconds / 60}min` : `${ex.restSeconds}s`} rest` : ""}
+                      {ex.restSeconds > 0
+                        ? ` · ${ex.restSeconds >= 60 ? `${ex.restSeconds / 60}min` : `${ex.restSeconds}s`} rest`
+                        : ""}
                     </span>
                   </div>
                   <Badge variant="muted" className="text-[10px] flex-shrink-0">
@@ -133,15 +148,11 @@ export default async function DashboardPage() {
             </p>
           </div>
 
-          {isToday ? (
-            <Link href={`/workouts/active?day=${displaySession.key}`} className="block">
-              <Button size="xl" className="w-full">Start Session</Button>
-            </Link>
-          ) : (
-            <Button size="xl" className="w-full" variant="secondary" disabled>
-              Scheduled for {dayLabels[displaySession.key]}
+          <Link href={`/workouts/active?session=${nextSession.index}`} className="block">
+            <Button size="xl" className="w-full">
+              {isPreferredToday ? "Start Today's Session" : "Start Session"}
             </Button>
-          )}
+          </Link>
         </CardContent>
       </Card>
 
@@ -161,40 +172,44 @@ export default async function DashboardPage() {
         </div>
       )}
 
-      {/* Week overview */}
+      {/* Programme overview */}
       <Card>
         <CardHeader>
-          <h2 className="text-sm font-semibold text-[var(--muted-foreground)] uppercase tracking-wider">This week</h2>
+          <h2 className="text-sm font-semibold text-[var(--muted-foreground)] uppercase tracking-wider">
+            Programme
+          </h2>
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-3 gap-2">
             {PROGRAMME.map((session) => {
-              const isScheduledToday = session.key === now.toLocaleDateString("en-GB", { weekday: "long" }).toLowerCase();
+              const isNext = session.index === nextSession.index;
               const doneThisWeek = recentSessions.some((s) => {
                 const d = new Date(s.date);
                 const startOfWeek = new Date(now);
                 startOfWeek.setDate(now.getDate() - now.getDay());
-                return s.intent === session.intent && d >= startOfWeek;
+                return s.sessionIndex === session.index && d >= startOfWeek;
               });
               return (
-                <div
-                  key={session.key}
-                  className={`rounded-[var(--radius)] p-3 text-center relative ${
-                    isScheduledToday
+                <Link key={session.index} href={`/workouts/active?session=${session.index}`}>
+                  <div className={`rounded-[var(--radius)] p-3 text-center relative cursor-pointer transition-colors ${
+                    isNext
                       ? "bg-[var(--primary)]/15 border border-[var(--primary)]/30"
-                      : "bg-[var(--secondary)]"
-                  }`}
-                >
-                  {doneThisWeek && (
-                    <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-[var(--success)]" />
-                  )}
-                  <p className="text-xs font-semibold uppercase tracking-wide text-[var(--muted-foreground)]">
-                    {dayLabels[session.key]}
-                  </p>
-                  <p className="text-xs mt-1 text-[var(--foreground)] leading-tight">
-                    {intentLabels[session.intent]}
-                  </p>
-                </div>
+                      : "bg-[var(--secondary)] hover:bg-[var(--muted)]"
+                  }`}>
+                    {doneThisWeek && (
+                      <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-[var(--success)]" />
+                    )}
+                    <p className="text-xs font-semibold uppercase tracking-wide text-[var(--muted-foreground)]">
+                      S{session.index + 1}
+                    </p>
+                    <p className="text-xs mt-1 text-[var(--foreground)] leading-tight">
+                      {intentLabels[session.intent]}
+                    </p>
+                    <p className="text-[10px] text-[var(--muted-foreground)] mt-0.5">
+                      {session.preferredDayName}
+                    </p>
+                  </div>
+                </Link>
               );
             })}
           </div>
