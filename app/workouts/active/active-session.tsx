@@ -1,16 +1,19 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useRouter } from "next/navigation";
+import { nanoid } from "nanoid";
 import {
   PROGRAMME,
   getExercise,
   WARMUP,
   COOLDOWN,
+  PROGRAMME_VERSION,
   type Exercise,
   type DayKey,
 } from "@/lib/programme";
 import { config, formatWeight, weightPlaceholder } from "@/lib/config";
+import { today } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -37,6 +40,28 @@ interface ExerciseLog {
 
 type Phase = "warmup" | "workout" | "cooldown" | "complete";
 
+// ─── API helpers ──────────────────────────────────────────────────────────────
+
+async function apiPost(path: string, body: unknown) {
+  const res = await fetch(path, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) console.error(`POST ${path} failed`, await res.text());
+  return res;
+}
+
+async function apiPatch(path: string, body: unknown) {
+  const res = await fetch(path, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) console.error(`PATCH ${path} failed`, await res.text());
+  return res;
+}
+
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export function ActiveSession({ day }: { day: DayKey }) {
@@ -51,20 +76,40 @@ export function ActiveSession({ day }: { day: DayKey }) {
   );
   const [showTimer, setShowTimer] = useState(false);
   const [timerSeconds, setTimerSeconds] = useState(90);
-
-  // Draft state for the current set being entered
   const [draft, setDraft] = useState({ reps: "", weight: "", distance: "", rpe: "", notes: "" });
+  const [saving, setSaving] = useState(false);
+
+  // Session ID created once when workout starts (after warm-up)
+  const sessionIdRef = useRef<string | null>(null);
+  const startedAtRef = useRef<string | null>(null);
 
   const currentExercise = exercises[exerciseIndex];
   const currentLog = logs[exerciseIndex];
   const setsLogged = currentLog.sets.length;
   const targetSets = currentExercise.sets;
   const exerciseDone = setsLogged >= targetSets;
-
-  // Last set for this exercise — pre-populate next set (reduces friction)
   const lastSet = currentLog.sets[currentLog.sets.length - 1] ?? null;
 
-  function logSet() {
+  // Called when warm-up is done — creates the session row
+  async function startWorkout() {
+    const id = nanoid();
+    const startedAt = new Date().toISOString();
+    sessionIdRef.current = id;
+    startedAtRef.current = startedAt;
+
+    await apiPost("/api/sessions", {
+      id,
+      date: today(),
+      dayType: day,
+      intent: session.intent,
+      programmeVersion: PROGRAMME_VERSION,
+      startedAt,
+    });
+
+    setPhase("workout");
+  }
+
+  async function logSet() {
     const set: LoggedSet = {
       setNumber: setsLogged + 1,
       reps: draft.reps ? parseInt(draft.reps) : null,
@@ -77,15 +122,31 @@ export function ActiveSession({ day }: { day: DayKey }) {
     };
 
     setLogs((prev) =>
-      prev.map((l, i) =>
-        i === exerciseIndex ? { ...l, sets: [...l.sets, set] } : l
-      )
+      prev.map((l, i) => (i === exerciseIndex ? { ...l, sets: [...l.sets, set] } : l))
     );
-
-    // Keep weight/distance pre-populated for next set (Zeigarnik momentum)
     setDraft((d) => ({ ...d, reps: "", rpe: "", notes: "" }));
 
-    // Auto-show rest timer after logging
+    // Persist to DB
+    if (sessionIdRef.current) {
+      const ex = currentExercise;
+      await apiPost("/api/sets", {
+        id: nanoid(),
+        sessionId: sessionIdRef.current,
+        exerciseId: ex.id,
+        exerciseName: ex.name,
+        movementPattern: ex.movementPattern,
+        muscleGroupPrimary: ex.muscleGroups[0],
+        setNumber: set.setNumber,
+        reps: set.reps ?? undefined,
+        weightKg: set.weightKg ?? undefined,
+        distanceMetres: set.distanceMetres ?? undefined,
+        side: set.side ?? undefined,
+        rpe: set.rpe ?? undefined,
+        completedAt: set.completedAt,
+        notes: set.notes || undefined,
+      });
+    }
+
     const restSecs = currentExercise.restSeconds || config.restTimerPresets[1];
     if (restSecs > 0) {
       setTimerSeconds(restSecs);
@@ -103,7 +164,16 @@ export function ActiveSession({ day }: { day: DayKey }) {
     }
   }
 
-  function finishSession() {
+  async function finishSession() {
+    setSaving(true);
+    if (sessionIdRef.current && startedAtRef.current) {
+      const completedAt = new Date().toISOString();
+      const durationSeconds = Math.round(
+        (new Date(completedAt).getTime() - new Date(startedAtRef.current).getTime()) / 1000
+      );
+      await apiPatch(`/api/sessions/${sessionIdRef.current}`, { completedAt, durationSeconds });
+    }
+    setSaving(false);
     setPhase("complete");
   }
 
@@ -138,7 +208,7 @@ export function ActiveSession({ day }: { day: DayKey }) {
               </div>
             )}
           </div>
-          <Button size="xl" className="w-full mt-6" onClick={() => setPhase("workout")}>
+          <Button size="xl" className="w-full mt-6" onClick={startWorkout}>
             Warm-up done → Start workout
           </Button>
         </div>
@@ -166,8 +236,8 @@ export function ActiveSession({ day }: { day: DayKey }) {
               </div>
             ))}
           </div>
-          <Button size="xl" className="w-full mt-6" onClick={finishSession}>
-            Done → Finish session
+          <Button size="xl" className="w-full mt-6" onClick={finishSession} disabled={saving}>
+            {saving ? "Saving…" : "Done → Finish session"}
           </Button>
         </div>
       </FullScreenShell>
@@ -191,21 +261,25 @@ export function ActiveSession({ day }: { day: DayKey }) {
               {totalSets} sets logged · {session.label.split("—")[0].trim()}
             </p>
           </div>
-          {/* Set summary */}
           <div className="w-full space-y-2 text-left">
             {logs.map((log) => {
               if (log.sets.length === 0) return null;
               const ex = getExercise(log.exerciseId);
+              const best = log.sets.reduce((b, s) =>
+                (s.weightKg ?? 0) > (b.weightKg ?? 0) ? s : b, log.sets[0]);
               return (
                 <div key={log.exerciseId} className="flex items-center justify-between text-sm">
                   <span className="text-[var(--muted-foreground)]">{ex.name}</span>
-                  <span className="font-medium">{log.sets.length} sets</span>
+                  <span className="font-medium">
+                    {log.sets.length} sets
+                    {best.weightKg ? ` · top ${formatWeight(best.weightKg)}` : ""}
+                  </span>
                 </div>
               );
             })}
           </div>
-          <Button size="xl" className="w-full" onClick={() => router.push("/")}>
-            Back to dashboard
+          <Button size="xl" className="w-full" onClick={() => router.push("/workouts")}>
+            View history →
           </Button>
         </div>
       </FullScreenShell>
@@ -215,7 +289,6 @@ export function ActiveSession({ day }: { day: DayKey }) {
   // ── Workout phase ──────────────────────────────────────────────────────────
   return (
     <FullScreenShell onExit={() => router.back()}>
-      {/* Rest timer overlay */}
       {showTimer && (
         <RestTimer
           key={timerSeconds}
@@ -228,16 +301,16 @@ export function ActiveSession({ day }: { day: DayKey }) {
       )}
 
       <div className="flex flex-col h-full">
-        {/* Progress bar */}
         <div className="h-1 bg-[var(--secondary)]">
           <div
             className="h-full bg-[var(--primary)] transition-all duration-500"
-            style={{ width: `${((exerciseIndex + (exerciseDone ? 1 : setsLogged / targetSets)) / exercises.length) * 100}%` }}
+            style={{
+              width: `${((exerciseIndex + (exerciseDone ? 1 : setsLogged / targetSets)) / exercises.length) * 100}%`,
+            }}
           />
         </div>
 
         <div className="flex-1 overflow-y-auto px-5 pt-5 pb-4 space-y-4">
-          {/* Exercise header */}
           <div>
             <div className="flex items-center justify-between mb-1">
               <span className="text-xs text-[var(--muted-foreground)]">
@@ -252,7 +325,6 @@ export function ActiveSession({ day }: { day: DayKey }) {
             </p>
           </div>
 
-          {/* Coaching cues */}
           <div className="rounded-[var(--radius-lg)] bg-[var(--secondary)] px-4 py-3 space-y-1">
             {currentExercise.cues.map((cue, i) => (
               <p key={i} className="text-sm text-[var(--muted-foreground)] flex items-start gap-2">
@@ -262,14 +334,8 @@ export function ActiveSession({ day }: { day: DayKey }) {
             ))}
           </div>
 
-          {/* Set tracker — Zeigarnik: open circles pull you forward */}
-          <SetTracker
-            total={targetSets}
-            logged={setsLogged}
-            sets={currentLog.sets}
-          />
+          <SetTracker total={targetSets} logged={setsLogged} sets={currentLog.sets} />
 
-          {/* Log form — only show if sets remain */}
           {!exerciseDone && (
             <SetLogForm
               exercise={currentExercise}
@@ -281,7 +347,6 @@ export function ActiveSession({ day }: { day: DayKey }) {
             />
           )}
 
-          {/* Swap options */}
           {currentExercise.swaps && currentExercise.swaps.length > 0 && (
             <div className="rounded-[var(--radius)] bg-[var(--warning)]/10 border border-[var(--warning)]/20 px-3 py-2">
               <p className="text-xs text-[var(--warning)] font-medium mb-1">Swap options</p>
@@ -294,7 +359,6 @@ export function ActiveSession({ day }: { day: DayKey }) {
           )}
         </div>
 
-        {/* Bottom action */}
         <div className="px-5 pb-8 pt-3 border-t border-[var(--border)]">
           {exerciseDone ? (
             <Button size="xl" className="w-full" onClick={nextExercise}>
@@ -321,16 +385,9 @@ export function ActiveSession({ day }: { day: DayKey }) {
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
-function FullScreenShell({
-  children,
-  onExit,
-}: {
-  children: React.ReactNode;
-  onExit: () => void;
-}) {
+function FullScreenShell({ children, onExit }: { children: React.ReactNode; onExit: () => void }) {
   return (
     <div className="fixed inset-0 z-40 bg-[var(--background)] flex flex-col">
-      {/* Minimal header — just exit */}
       <div className="flex items-center justify-between px-4 h-12 border-b border-[var(--border)] flex-shrink-0">
         <button
           onClick={onExit}
@@ -359,15 +416,7 @@ function PhaseHeader({ label, sublabel }: { label: string; sublabel: string }) {
   );
 }
 
-function SetTracker({
-  total,
-  logged,
-  sets,
-}: {
-  total: number;
-  logged: number;
-  sets: LoggedSet[];
-}) {
+function SetTracker({ total, logged, sets }: { total: number; logged: number; sets: LoggedSet[] }) {
   return (
     <div>
       <div className="flex items-center gap-2 mb-2">
@@ -383,12 +432,12 @@ function SetTracker({
             <div
               key={i}
               className={cn(
-                "flex flex-col items-center justify-center rounded-[var(--radius)] transition-all",
+                "flex flex-col items-center justify-center rounded-[var(--radius)] transition-all w-16 h-16",
                 done
-                  ? "bg-[var(--primary)] text-[var(--primary-foreground)] w-16 h-16"
+                  ? "bg-[var(--primary)] text-[var(--primary-foreground)]"
                   : current
-                  ? "border-2 border-[var(--primary)] text-[var(--primary)] w-16 h-16"
-                  : "border border-[var(--border)] text-[var(--muted-foreground)] w-16 h-16 opacity-50"
+                    ? "border-2 border-[var(--primary)] text-[var(--primary)]"
+                    : "border border-[var(--border)] text-[var(--muted-foreground)] opacity-50"
               )}
             >
               <span className="text-xs font-medium">Set {i + 1}</span>
@@ -398,9 +447,7 @@ function SetTracker({
               {done && set.reps != null && (
                 <span className="text-[10px] opacity-80">{set.reps} reps</span>
               )}
-              {!done && current && (
-                <span className="text-[10px] mt-0.5">now</span>
-              )}
+              {!done && current && <span className="text-[10px] mt-0.5">now</span>}
             </div>
           );
         })}
@@ -436,8 +483,6 @@ function SetLogForm({
   const showWeight = mode === "reps-weight" || mode === "distance-weight";
   const showReps = mode === "reps-weight" || mode === "reps-only" || mode === "complex";
   const showDistance = mode === "distance-weight" || mode === "distance-only";
-
-  // Determine if the form has enough data to log
   const canLog =
     (showReps && draft.reps !== "") ||
     (showDistance && draft.distance !== "") ||
@@ -479,7 +524,6 @@ function SetLogForm({
             />
           </div>
         )}
-
         {showWeight && (
           <div>
             <label className="text-xs text-[var(--muted-foreground)] mb-1 block">
@@ -494,12 +538,9 @@ function SetLogForm({
             />
           </div>
         )}
-
         {showDistance && (
           <div>
-            <label className="text-xs text-[var(--muted-foreground)] mb-1 block">
-              Distance (m)
-            </label>
+            <label className="text-xs text-[var(--muted-foreground)] mb-1 block">Distance (m)</label>
             <Input
               type="number"
               inputMode="decimal"
@@ -509,7 +550,6 @@ function SetLogForm({
             />
           </div>
         )}
-
         <div>
           <label className="text-xs text-[var(--muted-foreground)] mb-1 block">
             RPE <span className="opacity-60">(optional)</span>
@@ -526,12 +566,7 @@ function SetLogForm({
         </div>
       </div>
 
-      <Button
-        size="lg"
-        className="w-full"
-        onClick={onLog}
-        disabled={!canLog}
-      >
+      <Button size="lg" className="w-full" onClick={onLog} disabled={!canLog}>
         Log set {setNumber}
       </Button>
     </div>
