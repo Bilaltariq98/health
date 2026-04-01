@@ -7,8 +7,9 @@ import { PROGRAMME, getExercise, PROGRAMME_VERSION, getNextSession } from "@/lib
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { formatSessionDate, formatDuration } from "@/lib/utils";
-import { formatWeight } from "@/lib/config";
+import { formatSessionDate, formatDuration, formatTime } from "@/lib/utils";
+import { formatWeight, config } from "@/lib/config";
+import { StopSessionButton } from "@/components/stop-session-button";
 import { desc, count, isNotNull, eq, and } from "drizzle-orm";
 
 const intentLabels: Record<string, string> = {
@@ -143,21 +144,22 @@ export default async function WorkoutsPage() {
       {inProgress.length > 0 && (
         <div className="space-y-2">
           {inProgress.map((s) => (
-            <Link key={s.id} href={`/workouts/active?session=${s.sessionIndex}`}>
-              <div className="rounded-[var(--radius-lg)] bg-[var(--warning)]/10 border border-[var(--warning)]/30 px-4 py-3 flex items-center gap-3 cursor-pointer">
+            <div key={s.id} className="rounded-[var(--radius-lg)] bg-[var(--warning)]/10 border border-[var(--warning)]/30 px-4 py-3 flex items-center gap-3">
+              <Link href={`/workouts/active?session=${s.sessionIndex}&resume=${s.id}`} className="flex items-center gap-3 flex-1 min-w-0 cursor-pointer">
                 <div className="w-2 h-2 rounded-full bg-[var(--warning)] animate-pulse flex-shrink-0" />
                 <div className="flex-1 min-w-0">
                   <span className="text-sm font-medium">Session in progress</span>
                   <p className="text-xs text-[var(--muted-foreground)] mt-0.5">
-                    {intentLabels[s.intent]} · started {new Date(s.startedAt).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })}
+                    {intentLabels[s.intent]} · started {formatTime(s.startedAt, config.locale, config.timezone)}
                     {" · "}{setCountMap[s.id] ?? 0} sets logged
                   </p>
                 </div>
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--warning)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="flex-shrink-0">
                   <path d="M9 18l6-6-6-6" />
                 </svg>
-              </div>
-            </Link>
+              </Link>
+              <StopSessionButton sessionId={s.id} />
+            </div>
           ))}
         </div>
       )}
@@ -185,7 +187,7 @@ export default async function WorkoutsPage() {
           <div className="space-y-2">
             {completed.map((s) => {
               const best = bestSetMap[s.id];
-              const dayName = new Date(s.date).toLocaleDateString("en-GB", { weekday: "short" });
+              const dayName = new Date(s.date).toLocaleDateString(config.locale, { weekday: "short" });
               return (
                 <Link key={s.id} href={`/workouts/${s.id}`}>
                   <Card className="hover:border-[var(--primary)]/30 transition-colors cursor-pointer">

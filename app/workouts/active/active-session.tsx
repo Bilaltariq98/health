@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { nanoid } from "nanoid";
 import {
@@ -13,7 +13,7 @@ import {
   type ProgrammeSession,
 } from "@/lib/programme";
 import { config, formatWeight, weightPlaceholder } from "@/lib/config";
-import { today } from "@/lib/utils";
+import { today, formatTime } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -64,12 +64,12 @@ async function apiPatch(path: string, body: unknown) {
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
-export function ActiveSession({ sessionIndex }: { sessionIndex: number }) {
+export function ActiveSession({ sessionIndex, resumeSessionId }: { sessionIndex: number; resumeSessionId?: string | null }) {
   const router = useRouter();
   const session: ProgrammeSession = getSession(sessionIndex);
   const exercises = session.exercises.map(getExercise);
 
-  const [phase, setPhase] = useState<Phase>("warmup");
+  const [phase, setPhase] = useState<Phase>(resumeSessionId ? "workout" : "warmup");
   const [exerciseIndex, setExerciseIndex] = useState(0);
   const [logs, setLogs] = useState<ExerciseLog[]>(
     exercises.map((ex) => ({ exerciseId: ex.id, sets: [] }))
@@ -78,9 +78,69 @@ export function ActiveSession({ sessionIndex }: { sessionIndex: number }) {
   const [timerSeconds, setTimerSeconds] = useState(90);
   const [draft, setDraft] = useState({ reps: "", weight: "", distance: "", rpe: "", notes: "" });
   const [saving, setSaving] = useState(false);
+  const [showAbandon, setShowAbandon] = useState(false);
+  const [resumeLoading, setResumeLoading] = useState(!!resumeSessionId);
 
-  const sessionIdRef = useRef<string | null>(null);
+  const sessionIdRef = useRef<string | null>(resumeSessionId ?? null);
   const startedAtRef = useRef<string | null>(null);
+
+  // Resume an existing in-progress session — load its sets from the API
+  const resumeSession = useCallback(async (id: string) => {
+    try {
+      const res = await fetch(`/api/sessions/${id}`);
+      if (!res.ok) {
+        setPhase("warmup");
+        setResumeLoading(false);
+        return;
+      }
+      const data = await res.json();
+      sessionIdRef.current = data.id;
+      startedAtRef.current = data.startedAt;
+
+      // Rebuild logs from fetched sets
+      if (data.sets && data.sets.length > 0) {
+        const newLogs: ExerciseLog[] = exercises.map((ex) => ({ exerciseId: ex.id, sets: [] }));
+        for (const s of data.sets) {
+          const idx = exercises.findIndex((ex) => ex.id === s.exerciseId);
+          if (idx !== -1) {
+            newLogs[idx].sets.push({
+              setNumber: s.setNumber,
+              reps: s.reps,
+              weightKg: s.weightKg,
+              distanceMetres: s.distanceMetres,
+              side: s.side,
+              rpe: s.rpe,
+              completedAt: s.completedAt,
+              notes: s.notes ?? "",
+            });
+          }
+        }
+        // Sort sets within each exercise
+        for (const log of newLogs) {
+          log.sets.sort((a, b) => a.setNumber - b.setNumber);
+        }
+        setLogs(newLogs);
+
+        // Jump to the first incomplete exercise
+        const resumeIdx = newLogs.findIndex((log, i) => log.sets.length < exercises[i].sets);
+        if (resumeIdx === -1) {
+          // All exercises complete — go to cooldown
+          setPhase("cooldown");
+        } else {
+          setExerciseIndex(resumeIdx);
+        }
+      }
+    } catch {
+      setPhase("warmup");
+    }
+    setResumeLoading(false);
+  }, [exercises]);
+
+  useEffect(() => {
+    if (resumeSessionId) {
+      resumeSession(resumeSessionId);
+    }
+  }, [resumeSessionId, resumeSession]);
 
   const currentExercise = exercises[exerciseIndex];
   const currentLog = logs[exerciseIndex];
@@ -88,6 +148,13 @@ export function ActiveSession({ sessionIndex }: { sessionIndex: number }) {
   const targetSets = currentExercise.sets;
   const exerciseDone = setsLogged >= targetSets;
   const lastSet = currentLog.sets[currentLog.sets.length - 1] ?? null;
+
+  async function abandonSession() {
+    if (sessionIdRef.current) {
+      await fetch(`/api/sessions/${sessionIdRef.current}`, { method: "DELETE" });
+    }
+    router.push("/workouts");
+  }
 
   async function startWorkout() {
     const id = nanoid();
@@ -175,6 +242,18 @@ export function ActiveSession({ sessionIndex }: { sessionIndex: number }) {
     setPhase("complete");
   }
 
+  // ── Loading resume data ─────────────────────────────────────────────────────
+  if (resumeLoading) {
+    return (
+      <FullScreenShell onExit={() => router.push("/workouts")}>
+        <div className="flex flex-col h-full items-center justify-center px-5 text-center gap-4">
+          <div className="w-8 h-8 border-2 border-[var(--primary)] border-t-transparent rounded-full animate-spin" />
+          <p className="text-sm text-[var(--muted-foreground)]">Resuming session...</p>
+        </div>
+      </FullScreenShell>
+    );
+  }
+
   // ── Warm-up ────────────────────────────────────────────────────────────────
   if (phase === "warmup") {
     return (
@@ -213,7 +292,13 @@ export function ActiveSession({ sessionIndex }: { sessionIndex: number }) {
   // ── Cool-down ──────────────────────────────────────────────────────────────
   if (phase === "cooldown") {
     return (
-      <FullScreenShell onExit={() => router.back()}>
+      <FullScreenShell onExit={() => setShowAbandon(true)}>
+        {showAbandon && (
+          <AbandonDialog
+            onConfirm={abandonSession}
+            onCancel={() => setShowAbandon(false)}
+          />
+        )}
         <div className="flex flex-col h-full px-5 pt-6 pb-8">
           <PhaseHeader label="Cool-down" sublabel="5 minutes · don't skip this" />
           <div className="flex-1 overflow-y-auto space-y-3 mt-4">
@@ -272,7 +357,13 @@ export function ActiveSession({ sessionIndex }: { sessionIndex: number }) {
 
   // ── Workout ────────────────────────────────────────────────────────────────
   return (
-    <FullScreenShell onExit={() => router.back()}>
+    <FullScreenShell onExit={() => setShowAbandon(true)}>
+      {showAbandon && (
+        <AbandonDialog
+          onConfirm={abandonSession}
+          onCancel={() => setShowAbandon(false)}
+        />
+      )}
       {showTimer && (
         <RestTimer
           key={timerSeconds}
@@ -354,15 +445,47 @@ function FullScreenShell({ children, onExit }: { children: React.ReactNode; onEx
   return (
     <div className="fixed inset-0 z-40 bg-[var(--background)] flex flex-col">
       <div className="flex items-center justify-between px-4 h-12 border-b border-[var(--border)] flex-shrink-0">
-        <button onClick={onExit} className="flex items-center gap-1.5 text-sm text-[var(--muted-foreground)] hover:text-[var(--foreground)] transition-colors">
+        <button onClick={onExit} className="flex items-center gap-1.5 text-sm text-[var(--muted-foreground)] hover:text-[var(--foreground)] transition-colors min-h-[48px] min-w-[48px]">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 12H5M12 5l-7 7 7 7"/></svg>
           Exit
         </button>
         <span className="text-xs text-[var(--muted-foreground)] font-mono">
-          {new Date().toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })}
+          {formatTime(new Date().toISOString(), config.locale, config.timezone)}
         </span>
       </div>
       <div className="flex-1 overflow-hidden flex flex-col">{children}</div>
+    </div>
+  );
+}
+
+function AbandonDialog({ onConfirm, onCancel }: { onConfirm: () => void; onCancel: () => void }) {
+  const [confirming, setConfirming] = useState(false);
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-6">
+      <div className="w-full max-w-sm rounded-[var(--radius-lg)] bg-[var(--card)] border border-[var(--border)] p-5 space-y-4">
+        <div>
+          <h3 className="text-lg font-semibold">Stop session?</h3>
+          <p className="text-sm text-[var(--muted-foreground)] mt-1">
+            This will discard the session and any logged sets. This can&apos;t be undone.
+          </p>
+        </div>
+        <div className="flex gap-3">
+          <button
+            onClick={onCancel}
+            className="flex-1 px-4 py-3 rounded-[var(--radius)] bg-[var(--secondary)] text-sm font-medium min-h-[48px]"
+          >
+            Keep going
+          </button>
+          <button
+            onClick={() => { setConfirming(true); onConfirm(); }}
+            disabled={confirming}
+            className="flex-1 px-4 py-3 rounded-[var(--radius)] bg-[var(--destructive)] text-[var(--destructive-foreground)] text-sm font-medium min-h-[48px]"
+          >
+            {confirming ? "Stopping..." : "Stop session"}
+          </button>
+        </div>
+      </div>
     </div>
   );
 }

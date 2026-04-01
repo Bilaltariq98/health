@@ -26,6 +26,15 @@ export function today(): string {
   return new Date().toISOString().split("T")[0];
 }
 
+/** Format an ISO datetime as localised time (e.g. "11:55") */
+export function formatTime(iso: string, locale = "en-GB", timezone = "Europe/London"): string {
+  return new Date(iso).toLocaleTimeString(locale, {
+    hour: "2-digit",
+    minute: "2-digit",
+    timeZone: timezone,
+  });
+}
+
 /** Estimate 1RM using Epley formula: weight × (1 + reps/30) */
 export function epley1RM(weightKg: number, reps: number): number {
   if (reps === 1) return weightKg;
