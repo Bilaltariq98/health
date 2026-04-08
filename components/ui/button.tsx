@@ -11,13 +11,20 @@ interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 
 const variantClasses: Record<Variant, string> = {
   primary:
-    "bg-[var(--primary)] text-[var(--primary-foreground)] hover:bg-[var(--accent)] active:scale-[0.97]",
+    "bg-[var(--primary)] text-[var(--primary-foreground)] active:scale-[0.97]",
   secondary:
-    "bg-[var(--secondary)] text-[var(--secondary-foreground)] hover:bg-[var(--muted)] active:scale-[0.97]",
+    "bg-[var(--secondary)] text-[var(--secondary-foreground)] active:scale-[0.97]",
   ghost:
-    "bg-transparent text-[var(--foreground)] hover:bg-[var(--secondary)] active:scale-[0.97]",
+    "bg-transparent text-[var(--foreground)] active:scale-[0.97]",
   destructive:
-    "bg-[var(--destructive)] text-[var(--destructive-foreground)] hover:opacity-90 active:scale-[0.97]",
+    "bg-[var(--destructive)] text-[var(--destructive-foreground)] active:scale-[0.97]",
+};
+
+const hoverClasses: Record<Variant, string> = {
+  primary: "pointer-hover:bg-[var(--accent)]",
+  secondary: "pointer-hover:bg-[var(--muted)]",
+  ghost: "pointer-hover:bg-[var(--secondary)]",
+  destructive: "pointer-hover:opacity-90",
 };
 
 // Sizes ensure minimum 48px tap target on mobile (Fitts's Law)
@@ -35,10 +42,11 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
       disabled={disabled}
       className={cn(
         "inline-flex items-center justify-center gap-2 rounded-[var(--radius)]",
-        "font-medium transition-all duration-150 cursor-pointer select-none",
+        "font-medium transition-[background-color,color,opacity,transform] duration-150 cursor-pointer select-none",
         "focus-visible:outline-2 focus-visible:outline-[var(--ring)] focus-visible:outline-offset-2",
         "disabled:opacity-40 disabled:cursor-not-allowed disabled:active:scale-100",
         variantClasses[variant],
+        hoverClasses[variant],
         sizeClasses[size],
         className
       )}

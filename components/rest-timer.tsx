@@ -100,10 +100,10 @@ export function RestTimer({ seconds, presets, onComplete, onDismiss, onChangePre
             key={p}
             onClick={() => handlePreset(p)}
             className={cn(
-              "h-10 px-3 rounded-[var(--radius)] text-sm font-medium transition-colors",
+              "h-10 px-3 rounded-[var(--radius)] text-sm font-medium transition-[background-color,color] duration-150",
               p === seconds
                 ? "bg-[var(--primary)] text-[var(--primary-foreground)]"
-                : "bg-[var(--secondary)] text-[var(--muted-foreground)] hover:text-[var(--foreground)]"
+                : "bg-[var(--secondary)] text-[var(--muted-foreground)] pointer-hover:text-[var(--foreground)]"
             )}
           >
             {p >= 60 ? `${p / 60}m` : `${p}s`}
@@ -114,13 +114,13 @@ export function RestTimer({ seconds, presets, onComplete, onDismiss, onChangePre
       <div className="flex gap-3">
         <button
           onClick={() => setRunning((r) => !r)}
-          className="h-12 px-5 rounded-[var(--radius)] bg-[var(--secondary)] text-sm font-medium hover:bg-[var(--muted)] transition-colors"
+          className="h-12 px-5 rounded-[var(--radius)] bg-[var(--secondary)] text-sm font-medium pointer-hover:bg-[var(--muted)] transition-[background-color] duration-150"
         >
           {running ? "Pause" : "Resume"}
         </button>
         <button
           onClick={onDismiss}
-          className="h-12 px-5 rounded-[var(--radius)] bg-[var(--secondary)] text-sm font-medium hover:bg-[var(--muted)] transition-colors"
+          className="h-12 px-5 rounded-[var(--radius)] bg-[var(--secondary)] text-sm font-medium pointer-hover:bg-[var(--muted)] transition-[background-color] duration-150"
         >
           Skip rest
         </button>

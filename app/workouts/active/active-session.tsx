@@ -367,7 +367,7 @@ export function ActiveSession({ sessionIndex, resumeSessionId }: { sessionIndex:
         <div className="flex-1 overflow-y-auto px-5 pt-5 pb-4 space-y-4">
           <div>
             <div className="flex items-center justify-between mb-1">
-              <span className="text-xs text-[var(--muted-foreground)]">Exercise {exerciseIndex + 1} of {exercises.length}</span>
+              <span className="text-xs text-[var(--muted-foreground)] tabular-nums">Exercise {exerciseIndex + 1} of {exercises.length}</span>
               <Badge variant="muted">{currentExercise.movementPattern.replace(/-/g, " ")}</Badge>
             </div>
             <h2 className="text-2xl font-bold leading-tight">{currentExercise.name}</h2>
@@ -411,7 +411,7 @@ export function ActiveSession({ sessionIndex, resumeSessionId }: { sessionIndex:
           ) : (
             <button
               onClick={() => { setTimerSeconds(currentExercise.restSeconds || config.restTimerPresets[1]); setShowTimer(true); }}
-              className="w-full text-center text-sm text-[var(--muted-foreground)] py-3"
+              className="w-full text-center text-sm text-[var(--muted-foreground)] min-h-[44px] flex items-center justify-center"
             >
               Start rest timer manually
             </button>
@@ -428,7 +428,7 @@ function FullScreenShell({ children, onExit }: { children: React.ReactNode; onEx
   return (
     <div className="fixed inset-0 z-40 bg-[var(--background)] flex flex-col safe-top">
       <div className="flex items-center justify-between px-4 h-12 border-b border-[var(--border)] flex-shrink-0">
-        <button onClick={onExit} className="flex items-center gap-1.5 text-sm text-[var(--muted-foreground)] hover:text-[var(--foreground)] transition-colors">
+        <button onClick={onExit} className="flex items-center gap-1.5 text-sm text-[var(--muted-foreground)] pointer-hover:text-[var(--foreground)] transition-[color] duration-150 min-h-[44px] min-w-[44px]">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 12H5M12 5l-7 7 7 7"/></svg>
           Exit
         </button>
@@ -455,7 +455,7 @@ function SetTracker({ total, logged, sets }: { total: number; logged: number; se
     <div>
       <div className="flex items-center gap-2 mb-2">
         <span className="text-sm font-medium">Sets</span>
-        <span className="text-sm text-[var(--muted-foreground)]">{logged}/{total}</span>
+        <span className="text-sm text-[var(--muted-foreground)] tabular-nums">{logged}/{total}</span>
       </div>
       <div className="flex gap-2 flex-wrap">
         {Array.from({ length: total }).map((_, i) => {
@@ -470,8 +470,8 @@ function SetTracker({ total, logged, sets }: { total: number; logged: number; se
                 : "border border-[var(--border)] text-[var(--muted-foreground)] opacity-50"
             )}>
               <span className="text-xs font-medium">Set {i + 1}</span>
-              {done && set.weightKg != null && <span className="text-xs font-bold mt-0.5">{formatWeight(set.weightKg)}</span>}
-              {done && set.reps != null && <span className="text-[10px] opacity-80">{set.reps} reps</span>}
+              {done && set.weightKg != null && <span className="text-xs font-bold mt-0.5 tabular-nums">{formatWeight(set.weightKg)}</span>}
+              {done && set.reps != null && <span className="text-[10px] opacity-80 tabular-nums">{set.reps} reps</span>}
               {!done && current && <span className="text-[10px] mt-0.5">now</span>}
             </div>
           );
@@ -500,7 +500,7 @@ function SetLogForm({ exercise, setNumber, lastSet, draft, onChange, onLog }: {
         {lastSet && (
           <button
             onClick={() => onChange({ ...draft, reps: lastSet.reps?.toString() ?? "", weight: lastSet.weightKg?.toString() ?? "", distance: lastSet.distanceMetres?.toString() ?? "" })}
-            className="text-xs text-[var(--primary)] hover:underline"
+            className="text-xs text-[var(--primary)] pointer-hover:underline min-h-[44px] flex items-center"
           >Copy last set</button>
         )}
       </div>

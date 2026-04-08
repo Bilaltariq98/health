@@ -2,7 +2,6 @@
 
 import { useRef, useEffect, useCallback } from "react";
 import { Button } from "./button";
-import { cn } from "@/lib/utils";
 
 interface ConfirmDialogProps {
   open: boolean;
@@ -52,13 +51,7 @@ export function ConfirmDialog({
       ref={ref}
       onCancel={onCancel}
       onClick={handleBackdropClick}
-      className={cn(
-        "fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-50 m-0",
-        "backdrop:bg-black/60 backdrop:backdrop-blur-sm",
-        "bg-[var(--card)] text-[var(--card-foreground)]",
-        "rounded-[var(--radius-lg)] border border-[var(--border)]",
-        "p-6 w-[min(calc(100vw-2rem),20rem)] shadow-xl",
-      )}
+      className="confirm-dialog"
     >
       <h2 className="text-lg font-semibold">{title}</h2>
       {description && (

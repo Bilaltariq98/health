@@ -103,7 +103,7 @@ export default async function WorkoutsPage() {
                 className={`relative rounded-[var(--radius-lg)] p-3 text-center cursor-pointer transition-all ${
                   isNext
                     ? "bg-[var(--primary)]/15 border-2 border-[var(--primary)]/40"
-                    : "bg-[var(--card)] border border-[var(--border)] hover:border-[var(--primary)]/30"
+                    : "bg-[var(--card)] border border-[var(--border)] pointer-hover:border-[var(--primary)]/30"
                 }`}
               >
                 {(done || isNext) && (
@@ -163,7 +163,7 @@ export default async function WorkoutsPage() {
               const dayName = new Date(s.date).toLocaleDateString("en-GB", { weekday: "short" });
               return (
                 <Link key={s.id} href={`/workouts/${s.id}`}>
-                  <Card className="hover:border-[var(--primary)]/30 transition-colors cursor-pointer">
+                  <Card className="pointer-hover:border-[var(--primary)]/30 transition-[border-color] duration-150 cursor-pointer">
                     <div className="flex items-center gap-3 px-4 py-3">
                       {/* Day circle */}
                       <div className="w-10 h-10 rounded-full bg-[var(--secondary)] flex flex-col items-center justify-center flex-shrink-0">

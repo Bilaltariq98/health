@@ -1,5 +1,8 @@
 @import "tailwindcss";
 
+/* Touch-safe hover: only apply on devices with a fine pointer */
+@custom-variant pointer-hover (@media (hover: hover) and (pointer: fine));
+
 /* ─── Design tokens ──────────────────────────────────────────────────────────
    Dark mode is the default (matches portfolio). Light mode is opt-in.
    ─────────────────────────────────────────────────────────────────────────── */
@@ -103,6 +106,8 @@ body {
   background-color: var(--background);
   color: var(--foreground);
   font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -116,6 +121,11 @@ h1, h2, h3, h4, h5, h6 {
   font-weight: 600;
   letter-spacing: -0.02em;
   line-height: 1.2;
+  text-wrap: balance;
+}
+
+button, a, input, select, textarea {
+  touch-action: manipulation;
 }
 
 :focus-visible {
@@ -124,12 +134,54 @@ h1, h2, h3, h4, h5, h6 {
   border-radius: var(--radius-sm);
 }
 
-::-webkit-scrollbar { width: 6px; height: 6px; }
-::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
-::-webkit-scrollbar-thumb:hover { background: var(--muted-foreground); }
+/* Scrollbar: only style non-page containers (e.g. code blocks, overflow panels) */
+.custom-scrollbar::-webkit-scrollbar { width: 6px; height: 6px; }
+.custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+.custom-scrollbar::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+@media (hover: hover) {
+  .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: var(--muted-foreground); }
+}
 
 * { -webkit-tap-highlight-color: transparent; }
+
+/* ─── Dialog ───────────────────────────────────────────────────────────────── */
+
+dialog.confirm-dialog {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: min(calc(100vw - 2rem), 20rem);
+  max-height: 85vh;
+  z-index: 50;
+  margin: 0;
+  padding: 1.5rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--card);
+  color: var(--card-foreground);
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+}
+
+dialog.confirm-dialog[open] {
+  animation: dialog-in 200ms cubic-bezier(0.23, 1, 0.32, 1);
+}
+
+dialog.confirm-dialog::backdrop {
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(4px);
+  animation: dialog-overlay-in 200ms cubic-bezier(0.23, 1, 0.32, 1);
+}
+
+@keyframes dialog-in {
+  from { opacity: 0; transform: translate(-50%, -50%) scale(0.95); }
+  to   { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+}
+
+@keyframes dialog-overlay-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
 
 .safe-top { padding-top: env(safe-area-inset-top, 0px); }
 .safe-bottom { padding-bottom: env(safe-area-inset-bottom, 0px); }

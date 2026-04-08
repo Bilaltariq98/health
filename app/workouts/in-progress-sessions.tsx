@@ -61,7 +61,7 @@ export function InProgressSessions({
               <button
                 onClick={(e) => promptDiscard(e, s.id)}
                 disabled={discarding}
-                className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-[var(--destructive)]/20 transition-colors flex-shrink-0"
+                className="relative w-11 h-11 flex items-center justify-center rounded-full pointer-hover:bg-[var(--destructive)]/20 transition-[background-color] duration-150 flex-shrink-0 -mr-1.5"
                 aria-label="Discard session"
               >
                 <svg
