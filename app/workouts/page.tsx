@@ -3,25 +3,13 @@ export const dynamic = "force-dynamic";
 import Link from "next/link";
 import { db } from "@/lib/db/client";
 import { sessions, sets } from "@/lib/db/schema";
-import { PROGRAMME, getExercise, PROGRAMME_VERSION, getNextSession } from "@/lib/programme";
+import { PROGRAMME, getExercise, PROGRAMME_VERSION, getNextSession, INTENT_LABELS, INTENT_ICONS } from "@/lib/programme";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { formatSessionDate, formatDuration } from "@/lib/utils";
+import { formatDuration } from "@/lib/utils";
 import { formatWeight } from "@/lib/config";
-import { desc, count, isNotNull, eq, and } from "drizzle-orm";
-
-const intentLabels: Record<string, string> = {
-  "lower-push": "Lower + Push",
-  "upper-pull": "Upper + Pull",
-  "full-body-power": "Full Body Power",
-};
-
-const intentIcons: Record<string, string> = {
-  "lower-push": "L",
-  "upper-pull": "U",
-  "full-body-power": "F",
-};
+import { desc, count, isNotNull } from "drizzle-orm";
+import { InProgressSessions } from "./in-progress-sessions";
 
 export default async function WorkoutsPage() {
   const now = new Date();
@@ -104,8 +92,13 @@ export default async function WorkoutsPage() {
         {PROGRAMME.map((session) => {
           const isNext = session.index === nextSession.index;
           const done = doneThisWeek.has(session.index);
+          // If there's an in-progress session for this index, link to resume it
+          const existing = inProgress.find((s) => s.sessionIndex === session.index);
+          const href = existing
+            ? `/workouts/active?session=${session.index}&id=${existing.id}`
+            : `/workouts/active?session=${session.index}`;
           return (
-            <Link key={session.index} href={`/workouts/active?session=${session.index}`}>
+            <Link key={session.index} href={href}>
               <div
                 className={`relative rounded-[var(--radius-lg)] p-3 text-center cursor-pointer transition-all ${
                   isNext
@@ -125,10 +118,10 @@ export default async function WorkoutsPage() {
                       : "bg-[var(--secondary)] text-[var(--muted-foreground)]"
                   }`}
                 >
-                  {intentIcons[session.intent]}
+                  {INTENT_ICONS[session.intent]}
                 </div>
                 <p className="text-xs font-medium mt-2 leading-tight">
-                  {intentLabels[session.intent]}
+                  {INTENT_LABELS[session.intent]}
                 </p>
                 <p className="text-[10px] text-[var(--muted-foreground)] mt-0.5">
                   {session.preferredDayName}
@@ -141,25 +134,7 @@ export default async function WorkoutsPage() {
 
       {/* In-progress sessions — surface these prominently */}
       {inProgress.length > 0 && (
-        <div className="space-y-2">
-          {inProgress.map((s) => (
-            <Link key={s.id} href={`/workouts/active?session=${s.sessionIndex}`}>
-              <div className="rounded-[var(--radius-lg)] bg-[var(--warning)]/10 border border-[var(--warning)]/30 px-4 py-3 flex items-center gap-3 cursor-pointer">
-                <div className="w-2 h-2 rounded-full bg-[var(--warning)] animate-pulse flex-shrink-0" />
-                <div className="flex-1 min-w-0">
-                  <span className="text-sm font-medium">Session in progress</span>
-                  <p className="text-xs text-[var(--muted-foreground)] mt-0.5">
-                    {intentLabels[s.intent]} · started {new Date(s.startedAt).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })}
-                    {" · "}{setCountMap[s.id] ?? 0} sets logged
-                  </p>
-                </div>
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--warning)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="flex-shrink-0">
-                  <path d="M9 18l6-6-6-6" />
-                </svg>
-              </div>
-            </Link>
-          ))}
-        </div>
+        <InProgressSessions sessions={inProgress} setCountMap={setCountMap} />
       )}
 
       {/* Recent sessions — the main content */}
@@ -203,7 +178,7 @@ export default async function WorkoutsPage() {
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2">
                           <span className="text-sm font-medium">
-                            {intentLabels[s.intent] ?? s.intent}
+                            {INTENT_LABELS[s.intent] ?? s.intent}
                           </span>
                           <Badge variant="muted" className="text-[10px]">
                             S{s.sessionIndex + 1}
@@ -252,7 +227,7 @@ export default async function WorkoutsPage() {
               <CardHeader>
                 <div className="flex items-center gap-2">
                   <Badge variant="muted">S{session.index + 1}</Badge>
-                  <span className="text-sm font-semibold">{intentLabels[session.intent]}</span>
+                  <span className="text-sm font-semibold">{INTENT_LABELS[session.intent]}</span>
                   <span className="text-xs text-[var(--muted-foreground)] ml-auto">
                     {session.preferredDayName}
                   </span>

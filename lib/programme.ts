@@ -376,6 +376,20 @@ export const PROGRAMME: ProgrammeSession[] = [
   },
 ];
 
+// ─── Intent display helpers (derived from PROGRAMME) ─────────────────────────
+
+/** Short display label per intent, e.g. "Lower + Push". */
+export const INTENT_LABELS: Record<string, string> = {
+  "lower-push": "Lower + Push",
+  "upper-pull": "Upper + Pull",
+  "full-body-power": "Full Body Power",
+};
+
+/** Single-char icon per intent for compact UI. */
+export const INTENT_ICONS: Record<string, string> = Object.fromEntries(
+  Object.entries(INTENT_LABELS).map(([k, v]) => [k, v[0]])
+);
+
 // ─── Scheduling helpers ───────────────────────────────────────────────────────
 
 /**

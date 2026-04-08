@@ -9,13 +9,7 @@ import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { formatSessionDate, formatDuration, epley1RM } from "@/lib/utils";
 import { formatWeight } from "@/lib/config";
-import { getExercise } from "@/lib/programme";
-
-const intentLabels: Record<string, string> = {
-  "lower-push": "Lower + Push",
-  "upper-pull": "Upper + Pull",
-  "full-body-power": "Full Body Power",
-};
+import { getExercise, INTENT_LABELS } from "@/lib/programme";
 
 export default async function SessionDetailPage({
   params,
@@ -58,7 +52,7 @@ export default async function SessionDetailPage({
       {/* Header */}
       <div>
         <div className="flex items-center gap-2 mb-1">
-          <Badge variant="muted">{intentLabels[session.intent] ?? session.intent}</Badge>
+          <Badge variant="muted">{INTENT_LABELS[session.intent] ?? session.intent}</Badge>
           {!session.completedAt && <Badge variant="warning">incomplete</Badge>}
           <span className="text-xs text-[var(--muted-foreground)] font-mono ml-auto">v{session.programmeVersion}</span>
         </div>

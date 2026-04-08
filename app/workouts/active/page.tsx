@@ -18,11 +18,12 @@ function ActiveSessionInner() {
   const router = useRouter();
   const raw = params.get("session");
   const sessionIndex = raw !== null ? parseInt(raw) : NaN;
+  const resumeSessionId = params.get("id") ?? undefined;
 
   if (isNaN(sessionIndex) || sessionIndex < 0 || sessionIndex >= PROGRAMME.length) {
     router.replace("/workouts");
     return null;
   }
 
-  return <ActiveSession sessionIndex={sessionIndex} />;
+  return <ActiveSession sessionIndex={sessionIndex} resumeSessionId={resumeSessionId} />;
 }

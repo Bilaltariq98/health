@@ -1,36 +1,84 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Gym Tracker
 
-## Getting Started
+A personal health & gym tracking app built with Next.js, Drizzle ORM, and libSQL.
 
-First, run the development server:
+## Local Development
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
+pnpm install
+pnpm db:migrate
 pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+App runs at http://localhost:3000.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Deployment
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Deployed on [Fly.io](https://fly.io) behind [Tailscale](https://tailscale.com) (no public internet exposure). HTTPS is handled by [Caddy](https://caddyserver.com) using the Let's Encrypt DNS challenge.
 
-## Learn More
+### Architecture
 
-To learn more about Next.js, take a look at the following resources:
+```
+Internet ──✗──(no public ports)
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+Tailscale tailnet:
+  Browser (on tailnet) ──► health.example.com
+    ──► Tailscale IP (100.x.x.x)
+    ──► Caddy (TLS termination, port 443)
+    ──► Next.js (port 80)
+```
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+**Why this setup?**
 
-## Deploy on Vercel
+- **Tailscale** — the app is only accessible from devices on your tailnet. No public attack surface.
+- **Caddy + DNS challenge** — since there are no public ports, Caddy can't use the standard HTTP challenge for Let's Encrypt. Instead, it proves domain ownership via DNS records using an API token from your DNS provider (e.g. Netlify, Cloudflare).
+- **Fly volume** — Tailscale state is persisted to a Fly volume at `/var/lib/tailscale`. Without this, every deploy registers a new Tailscale node (health, health-1, health-2, etc.) because the container starts fresh each time.
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+### Setup
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+1. **DNS record** — point your domain (e.g. `health.example.com`) to the container's Tailscale IP with an A record. You can find the IP with `tailscale ip -4` or in the Tailscale admin console.
+
+2. **Create a Fly volume** for Tailscale state persistence:
+
+   ```bash
+   fly volumes create tailscale_state --region lhr --size 1
+   ```
+
+3. **Set secrets** on Fly:
+
+   ```bash
+   fly secrets set TAILSCALE_AUTHKEY=tskey-auth-...
+   fly secrets set NETLIFY_TOKEN=<netlify-personal-access-token>
+   ```
+
+   - Tailscale auth key: generate at https://login.tailscale.com/admin/settings/keys (enable "Reusable" and "Ephemeral")
+   - Netlify token: generate at https://app.netlify.com/user/applications#personal-access-tokens
+   - If using a different DNS provider, swap the Caddy DNS plugin in the Dockerfile and update the Caddyfile accordingly.
+
+4. **Update the Caddyfile** with your domain:
+
+   ```
+   health.example.com {
+       reverse_proxy localhost:80
+       tls {
+           dns netlify {env.NETLIFY_TOKEN}
+       }
+   }
+   ```
+
+5. **Deploy:**
+
+   ```bash
+   fly deploy
+   ```
+
+### Environment Variables
+
+See `.env.example` for app-level variables. Fly secrets handle:
+
+| Secret             | Purpose                          |
+| ------------------ | -------------------------------- |
+| `TAILSCALE_AUTHKEY`| Joins the container to your tailnet |
+| `NETLIFY_TOKEN`    | DNS challenge for TLS certs      |
+| `TURSO_DATABASE_URL` | Production database URL (Turso) |
+| `TURSO_AUTH_TOKEN`   | Production database auth token  |

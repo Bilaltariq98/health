@@ -1,0 +1,6 @@
+health.bilaltariq.tech {
+	reverse_proxy localhost:3000
+	tls {
+		dns netlify {env.NETLIFY_TOKEN}
+	}
+}

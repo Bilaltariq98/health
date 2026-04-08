@@ -12,19 +12,14 @@ import {
   PROGRAMME,
   PROGRAMME_VERSION,
   isDeloadDue,
+  INTENT_LABELS,
 } from "@/lib/programme";
 import { config } from "@/lib/config";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ThemeToggle } from "@/components/theme-toggle";
-import { formatDuration, formatSessionDate } from "@/lib/utils";
-
-const intentLabels: Record<string, string> = {
-  "lower-push": "Lower + Push",
-  "upper-pull": "Upper + Pull",
-  "full-body-power": "Full Body Power",
-};
+import { formatDuration } from "@/lib/utils";
 
 export default async function DashboardPage() {
   // Fetch recent completed sessions for history-aware scheduling
@@ -117,7 +112,7 @@ export default async function DashboardPage() {
               <Badge variant={isPreferredToday ? "primary" : "muted"}>
                 {isPreferredToday ? "Today" : `Next up`}
               </Badge>
-              <Badge variant="muted">{intentLabels[nextSession.intent]}</Badge>
+              <Badge variant="muted">{INTENT_LABELS[nextSession.intent]}</Badge>
             </div>
             <span className="text-xs text-[var(--muted-foreground)]">v{PROGRAMME_VERSION}</span>
           </div>
@@ -233,7 +228,7 @@ export default async function DashboardPage() {
                     </span>
                   </div>
                   <div className="flex-1 min-w-0">
-                    <span className="text-sm font-medium">{intentLabels[s.intent]}</span>
+                    <span className="text-sm font-medium">{INTENT_LABELS[s.intent]}</span>
                     <p className="text-xs text-[var(--muted-foreground)]">
                       {s.durationSeconds ? formatDuration(s.durationSeconds) : "—"}
                     </p>

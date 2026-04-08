@@ -28,7 +28,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           enableSystem={false}
           disableTransitionOnChange
         >
-          <main className="pb-nav min-h-screen">{children}</main>
+          <main className="safe-top pb-nav min-h-screen">{children}</main>
           <NavBar />
           <SWRegister />
         </ThemeProvider>
