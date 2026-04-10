@@ -76,7 +76,9 @@ export function ActiveSession({ sessionIndex, resumeSessionId }: { sessionIndex:
   );
   const [showTimer, setShowTimer] = useState(false);
   const [timerSeconds, setTimerSeconds] = useState(90);
-  const [draft, setDraft] = useState({ reps: "", weight: "", distance: "", rpe: "", notes: "" });
+  const [drafts, setDrafts] = useState<DraftState[]>(
+    exercises.map(() => ({ reps: "", weight: "", distance: "", rpe: "", notes: "" }))
+  );
   const [saving, setSaving] = useState(false);
 
   const sessionIdRef = useRef<string | null>(resumeSessionId ?? null);
@@ -150,6 +152,12 @@ export function ActiveSession({ sessionIndex, resumeSessionId }: { sessionIndex:
   const targetSets = currentExercise.sets;
   const exerciseDone = setsLogged >= targetSets;
   const lastSet = currentLog.sets[currentLog.sets.length - 1] ?? null;
+  const draft = drafts[exerciseIndex];
+  const setDraft = (d: DraftState) =>
+    setDrafts((prev) => prev.map((existing, i) => (i === exerciseIndex ? d : existing)));
+  const allExercisesDone = exercises.every((ex, i) => logs[i].sets.length >= ex.sets);
+  const totalSetsLogged = logs.reduce((sum, l) => sum + l.sets.length, 0);
+  const totalSetsTarget = exercises.reduce((sum, ex) => sum + ex.sets, 0);
 
   async function startWorkout() {
     const id = nanoid();
@@ -185,7 +193,9 @@ export function ActiveSession({ sessionIndex, resumeSessionId }: { sessionIndex:
     setLogs((prev) =>
       prev.map((l, i) => (i === exerciseIndex ? { ...l, sets: [...l.sets, set] } : l))
     );
-    setDraft((d) => ({ ...d, reps: "", rpe: "", notes: "" }));
+    setDrafts((prev) =>
+      prev.map((d, i) => (i === exerciseIndex ? { ...d, reps: "", rpe: "", notes: "" } : d))
+    );
 
     if (sessionIdRef.current) {
       const ex = currentExercise;
@@ -214,14 +224,28 @@ export function ActiveSession({ sessionIndex, resumeSessionId }: { sessionIndex:
     }
   }
 
+  function goToExercise(idx: number) {
+    setShowTimer(false);
+    setExerciseIndex(idx);
+  }
+
   function nextExercise() {
     setShowTimer(false);
-    if (exerciseIndex < exercises.length - 1) {
-      setExerciseIndex((i) => i + 1);
-      setDraft({ reps: "", weight: "", distance: "", rpe: "", notes: "" });
-    } else {
+    // If all exercises are complete, proceed to cooldown
+    const updatedAllDone = exercises.every((ex, i) => logs[i].sets.length >= ex.sets);
+    if (updatedAllDone) {
       setPhase("cooldown");
+      return;
     }
+    // Jump to the next incomplete exercise (wrapping around)
+    for (let offset = 1; offset <= exercises.length; offset++) {
+      const idx = (exerciseIndex + offset) % exercises.length;
+      if (logs[idx].sets.length < exercises[idx].sets) {
+        setExerciseIndex(idx);
+        return;
+      }
+    }
+    setPhase("cooldown");
   }
 
   async function finishSession() {
@@ -361,9 +385,15 @@ export function ActiveSession({ sessionIndex, resumeSessionId }: { sessionIndex:
         <div className="h-1 bg-[var(--secondary)]">
           <div
             className="h-full bg-[var(--primary)] transition-all duration-500"
-            style={{ width: `${((exerciseIndex + (exerciseDone ? 1 : setsLogged / targetSets)) / exercises.length) * 100}%` }}
+            style={{ width: `${(totalSetsLogged / totalSetsTarget) * 100}%` }}
           />
         </div>
+        <ExerciseNav
+          exercises={exercises}
+          logs={logs}
+          currentIndex={exerciseIndex}
+          onSelect={goToExercise}
+        />
         <div className="flex-1 overflow-y-auto px-5 pt-5 pb-4 space-y-4">
           <div>
             <div className="flex items-center justify-between mb-1">
@@ -406,15 +436,23 @@ export function ActiveSession({ sessionIndex, resumeSessionId }: { sessionIndex:
         <div className="px-5 pb-8 pt-3 border-t border-[var(--border)]">
           {exerciseDone ? (
             <Button size="xl" className="w-full" onClick={nextExercise}>
-              {exerciseIndex < exercises.length - 1 ? `Next: ${exercises[exerciseIndex + 1].name} →` : "Finish workout →"}
+              {allExercisesDone ? "Finish workout →" : "Next incomplete →"}
             </Button>
           ) : (
-            <button
-              onClick={() => { setTimerSeconds(currentExercise.restSeconds || config.restTimerPresets[1]); setShowTimer(true); }}
-              className="w-full text-center text-sm text-[var(--muted-foreground)] min-h-[44px] flex items-center justify-center"
-            >
-              Start rest timer manually
-            </button>
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => { setTimerSeconds(currentExercise.restSeconds || config.restTimerPresets[1]); setShowTimer(true); }}
+                className="flex-1 text-center text-sm text-[var(--muted-foreground)] min-h-[48px] flex items-center justify-center"
+              >
+                Rest timer
+              </button>
+              <button
+                onClick={nextExercise}
+                className="flex-1 text-center text-sm text-[var(--primary)] font-medium min-h-[48px] flex items-center justify-center rounded-[var(--radius)] bg-[var(--primary)]/10"
+              >
+                Skip for now →
+              </button>
+            </div>
           )}
         </div>
       </div>
@@ -446,6 +484,52 @@ function PhaseHeader({ label, sublabel }: { label: string; sublabel: string }) {
     <div>
       <h1 className="text-2xl font-bold">{label}</h1>
       <p className="text-sm text-[var(--muted-foreground)] mt-1">{sublabel}</p>
+    </div>
+  );
+}
+
+function ExerciseNav({ exercises, logs, currentIndex, onSelect }: {
+  exercises: Exercise[]; logs: ExerciseLog[]; currentIndex: number; onSelect: (idx: number) => void;
+}) {
+  const scrollRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const el = scrollRef.current?.children[currentIndex] as HTMLElement | undefined;
+    el?.scrollIntoView({ inline: "center", behavior: "smooth", block: "nearest" });
+  }, [currentIndex]);
+
+  return (
+    <div ref={scrollRef} className="flex gap-1.5 overflow-x-auto px-4 py-2 border-b border-[var(--border)] flex-shrink-0 scrollbar-hide">
+      {exercises.map((ex, i) => {
+        const logged = logs[i].sets.length;
+        const target = ex.sets;
+        const done = logged >= target;
+        const active = i === currentIndex;
+        const started = logged > 0 && !done;
+        return (
+          <button
+            key={ex.id}
+            onClick={() => onSelect(i)}
+            className={cn(
+              "flex-shrink-0 flex items-center gap-1.5 rounded-full px-3 min-h-[36px] text-xs font-medium transition-all",
+              active
+                ? "bg-[var(--primary)] text-[var(--primary-foreground)]"
+                : done
+                  ? "bg-[var(--primary)]/15 text-[var(--primary)]"
+                  : started
+                    ? "bg-[var(--secondary)] text-[var(--foreground)]"
+                    : "bg-[var(--secondary)] text-[var(--muted-foreground)]"
+            )}
+          >
+            {done && (
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="20 6 9 17 4 12"/>
+              </svg>
+            )}
+            <span className="whitespace-nowrap">{ex.name}</span>
+            {!done && <span className="tabular-nums opacity-70">{logged}/{target}</span>}
+          </button>
+        );
+      })}
     </div>
   );
 }
